@@ -1,0 +1,13 @@
+# PMO Platform — ML Training Dependencies
+# Sprint 0 / S0-006: Risk Model Training
+#
+# Install with:  pip3 install -r requirements.txt
+# Requires:      Python 3.9+
+
+requests>=2.31.0         # HTTP calls to Supabase REST API (replaces supabase client)
+pandas>=2.0.0            # Tabular data manipulation
+numpy>=1.24.0            # Numerical computing
+scikit-learn>=1.4.0      # ML algorithms, cross-validation, metrics
+joblib>=1.3.0            # Model serialization (save/load .pkl)
+python-dotenv>=1.0.0     # Load .env file for Supabase credentials
+matplotlib>=3.7.0        # Feature importance chart

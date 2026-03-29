@@ -1,0 +1,56 @@
+{
+  "trained_at": "2026-03-28T16:25:52.283321Z",
+  "model_type": "GradientBoosting",
+  "target": "health_score",
+  "features": [
+    "budget_burn_rate",
+    "days_remaining",
+    "days_elapsed",
+    "status_enc",
+    "priority_enc",
+    "category_enc",
+    "budget_total",
+    "sprint_count",
+    "avg_velocity",
+    "avg_sprint_completion_rate",
+    "active_sprints",
+    "open_risks",
+    "high_severity_risks",
+    "avg_individual_risk_score",
+    "work_completion_rate",
+    "blocked_items",
+    "overdue_items",
+    "team_size",
+    "avg_allocation_pct"
+  ],
+  "feature_count": 19,
+  "training_rows": 150,
+  "data_source": "rpc/get_ml_training_features (SECURITY DEFINER)",
+  "metrics": {
+    "RandomForest": {
+      "r2_mean": 0.9898,
+      "r2_std": 0.0026,
+      "rmse_mean": 2.2262,
+      "mae_mean": 1.7133
+    },
+    "GradientBoosting": {
+      "r2_mean": 0.9931,
+      "r2_std": 0.002,
+      "rmse_mean": 1.8204,
+      "mae_mean": 1.4338
+    }
+  },
+  "selected_model": "GradientBoosting",
+  "tollgate": {
+    "gate": "TG-1",
+    "requirement": "R^2 > 0.400",
+    "passed": true,
+    "actual_r2": 0.9931
+  },
+  "leakage_exclusions": [
+    "projects.risk_score (corr=-1.0 with health_score)",
+    "projects.health_status (derived from health_score)",
+    "projects.classification (derived from health_score)"
+  ],
+  "retraining_instructions": "1. Load new data into Supabase. 2. Run: python3 train_risk_model.py. 3. Restart FastAPI to pick up new model/risk_model.pkl."
+}
