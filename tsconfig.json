@@ -18,8 +18,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
-      "@xyflow/react": ["./node_modules/@xyflow/react/dist/esm/index.d.ts"],
-      "@xyflow/system": ["./node_modules/@xyflow/system/dist/esm/index.d.ts"]
+      "@xyflow/react": ["./node_modules/@xyflow/react/dist/esm/index"],
+      "@xyflow/system": ["./node_modules/@xyflow/system/dist/esm/index"]
     }
   },
   "include": ["src"],

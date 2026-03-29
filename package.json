@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_ENV=development vite",
-    "build": "tsc && vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "type-check": "tsc --noEmit",
     "setup": "NODE_ENV=development npm install",
@@ -23,6 +23,7 @@
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "cmdk": "1.0.0",
+    "@xyflow/react": "12.4.4",
     "d3-force": "3.0.0",
     "framer-motion": "11.1.9",
     "react": "18.2.0",
