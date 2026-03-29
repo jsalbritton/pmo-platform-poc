@@ -1,0 +1,41 @@
+# ============================================================
+# railway.toml — PMO Platform FastAPI Deployment Config
+# ============================================================
+# This file tells Railway how to build and run the FastAPI service.
+#
+# WHY THIS FILE EXISTS:
+# Railway auto-detects Python projects but needs guidance on:
+#   1. Where the code is (the api/ subdirectory, not the root)
+#   2. How to start the server (uvicorn with the right port)
+#   3. Where the model file is (relative to the start directory)
+#
+# PRODUCTION NOTE (Azure):
+# On Azure Container Apps, this file is replaced by a Dockerfile.
+# The same start command becomes the CMD instruction.
+# azure-container-apps target: Docker image → Container App → HTTPS
+#
+# PORT is injected by Railway automatically. Never hardcode it.
+# $PORT changes between deployments — always use the env var.
+
+[build]
+# Railway detects Python automatically from requirements.txt.
+# No build command needed — Railway runs pip install -r requirements.txt.
+
+[deploy]
+# Start uvicorn from the api/ subdirectory.
+# The api/ directory contains main.py and routes/ — this is the Python root.
+# We cd into api/ so that "from routes.predict import router" resolves correctly.
+# Without the cd, Python can't find the routes module.
+startCommand = "cd api && uvicorn main:app --host 0.0.0.0 --port $PORT"
+
+# Railway health check — pings this URL to verify the service is alive.
+# If it returns non-200 three times in a row, Railway restarts the container.
+# /health is a public endpoint (no JWT required) — intentional for infra checks.
+healthcheckPath = "/health"
+
+# How long Railway waits for /health to return 200 on first deploy.
+# 30s is conservative — FastAPI + joblib model load takes ~5-10s cold start.
+healthcheckTimeout = 30
+
+# Number of restart attempts before Railway marks the service as failed.
+restartPolicyMaxRetries = 3

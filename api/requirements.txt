@@ -1,0 +1,32 @@
+# PMO Platform FastAPI — Python Dependencies
+# ============================================
+# Pinned versions for reproducibility.
+# In production (Azure Container Apps), these install during container build.
+# Railway uses these for its auto-detected Python environment.
+
+# ── Web Framework ─────────────────────────────────────────────────────────────
+fastapi==0.115.0           # Web framework. Async-first, OpenAPI auto-generation.
+uvicorn[standard]==0.30.0  # ASGI server. [standard] adds websockets + httptools.
+
+# ── Authentication ────────────────────────────────────────────────────────────
+pyjwt==2.9.0               # JWT decode/validate. HS256 signature verification.
+                            # Validates Supabase tokens locally — no network call.
+
+# ── Database Client ───────────────────────────────────────────────────────────
+supabase==2.9.1            # Supabase Python client. RPC calls + table operations.
+httpx==0.27.0              # Async HTTP. Supabase client dependency.
+
+# ── ML Inference Stack ────────────────────────────────────────────────────────
+# These must match the versions used during model training.
+# Mismatched scikit-learn versions can cause silent prediction errors
+# (different internal implementations of GradientBoostingRegressor).
+joblib==1.4.2              # Load/save pkl model bundle (model + imputer + features).
+scikit-learn==1.5.2        # GradientBoostingRegressor + SimpleImputer inference.
+pandas==2.2.3              # DataFrame construction for feature vector.
+numpy==1.26.4              # Numerical operations. scikit-learn dependency.
+
+# ── AI Briefing ───────────────────────────────────────────────────────────────
+anthropic==0.39.0          # Anthropic SDK. Sonnet 4.6 API calls for briefing endpoint.
+
+# ── Environment ───────────────────────────────────────────────────────────────
+python-dotenv==1.0.1       # Load .env for local dev. No-op in Railway/Azure.
