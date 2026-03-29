@@ -11,7 +11,9 @@ import Board       from '@/routes/Board'
 import Resources   from '@/routes/Resources'
 import AIEngine    from '@/routes/AIEngine'
 import Settings    from '@/routes/Settings'
-import Constellation from '@/routes/Constellation'
+// S0 version (D3 canvas): import Constellation from '@/routes/Constellation'
+// S1A version (@xyflow/react): D-040 Constellation View with D-043 risk propagation
+import ConstellationView from '@/features/constellation/ConstellationView'
 
 /**
  * App — root component.
@@ -75,7 +77,7 @@ export default function App() {
           >
             <Route index element={<Navigate to="/portfolio" replace />} />
             <Route path="portfolio"     element={<Portfolio />} />
-            <Route path="constellation" element={<Constellation />} />
+            <Route path="constellation" element={<ConstellationView />} />
             <Route path="project/:id"   element={<Project />} />
             <Route path="board/:id"     element={<Board />} />
             <Route path="resources"     element={<Resources />} />
