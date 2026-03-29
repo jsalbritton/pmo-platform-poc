@@ -1,37 +1,26 @@
 # ============================================================
 # railway.toml — PMO Platform FastAPI Deployment Config
 # ============================================================
-# This file tells Railway how to build and run the FastAPI service.
+# Build and start commands are intentionally OMITTED here.
+# A Dockerfile at the repo root handles both build and CMD.
 #
-# WHY THIS FILE EXISTS:
-# Railway auto-detects Python projects but needs guidance on:
-#   1. Where the code is (the api/ subdirectory, not the root)
-#   2. How to start the server (uvicorn with the right port)
-#   3. Where the model file is (relative to the start directory)
+# Railway detects the Dockerfile automatically and uses it,
+# bypassing Nixpacks (which mis-detects this as a Node.js project
+# because package.json exists for the Vite frontend).
+#
+# The Dockerfile:
+#   - Uses python:3.11-slim (pip included, no module issues)
+#   - COPY api/ → WORKDIR /app (no "cd api" needed at runtime)
+#   - CMD uvicorn main:app --host 0.0.0.0 --port ${PORT}
 #
 # PRODUCTION NOTE (Azure):
-# On Azure Container Apps, this file is replaced by a Dockerfile.
-# The same start command becomes the CMD instruction.
-# azure-container-apps target: Docker image → Container App → HTTPS
+# The same Dockerfile becomes the Container App image.
+# Replace Railway's injected $PORT with Azure's default 8000.
 #
-# PORT is injected by Railway automatically. Never hardcode it.
-# $PORT changes between deployments — always use the env var.
-
-[build]
-# Explicit Python build command — prevents Railway from auto-detecting Node.js
-# (package.json is present for the Vite frontend) and running npm run build.
-# Railway must install Python deps for the FastAPI api/ service only.
-# buildCommand — not needed; Dockerfile handles the build
+# PORT is injected by Railway automatically at runtime.
 
 [deploy]
-# Start uvicorn from the api/ subdirectory.
-# The api/ directory contains main.py and routes/ — this is the Python root.
-# We cd into api/ so that "from routes.predict import router" resolves correctly.
-# Without the cd, Python can't find the routes module.
-startCommand = "cd api && uvicorn main:app --host 0.0.0.0 --port $PORT"
-
 # Railway health check — pings this URL to verify the service is alive.
-# If it returns non-200 three times in a row, Railway restarts the container.
 # /health is a public endpoint (no JWT required) — intentional for infra checks.
 healthcheckPath = "/health"
 
