@@ -21,7 +21,7 @@
 # Explicit Python build command — prevents Railway from auto-detecting Node.js
 # (package.json is present for the Vite frontend) and running npm run build.
 # Railway must install Python deps for the FastAPI api/ service only.
-buildCommand = "python3 -m pip install -r api/requirements.txt"
+# buildCommand — not needed; Dockerfile handles the build
 
 [deploy]
 # Start uvicorn from the api/ subdirectory.
