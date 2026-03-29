@@ -15,10 +15,10 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
-    "customConditions": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@xyflow/react": ["./node_modules/@xyflow/react/dist/esm/index.d.ts"]
     }
   },
   "include": ["src"],

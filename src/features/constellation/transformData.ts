@@ -95,14 +95,6 @@ export const PULSE_COLORS: Record<PulseCondition, {
   dormant:  { fill: '#374151', border: '#6b7280', glow: 'rgba(107,114,128,0.15)', label: 'Dormant' },
 }
 
-// Unscored fallback — projects without pulse_condition yet
-const UNSCORED_COLORS = {
-  fill: '#475569',
-  border: '#64748b',
-  glow: 'rgba(71,85,105,0.2)',
-  label: 'Unscored',
-}
-
 // ─── EDGE COLOR BY RELATIONSHIP TYPE (D-043) ────────────────────────────────
 // Priority order: shared_resource > same_pm > same_program > same_vertical+resource
 
