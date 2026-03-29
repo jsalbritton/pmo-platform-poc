@@ -136,7 +136,6 @@ export function transformProjectsToNodes(
     .filter(p => p.status !== 'cancelled')   // cancelled projects don't appear
     .map((p) => {
       const condition = p.pulse_condition ?? null
-      const colors = condition ? PULSE_COLORS[condition] : UNSCORED_COLORS
 
       return {
         id: p.id,

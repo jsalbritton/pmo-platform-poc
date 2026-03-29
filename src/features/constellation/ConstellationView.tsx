@@ -36,7 +36,7 @@ import '@xyflow/react/dist/style.css'
 import ProjectNode from './ProjectNode'
 import RiskEdge from './RiskEdge'
 import { useConstellationData } from './useConstellationData'
-import { PULSE_COLORS, type ProjectNodeData, type RiskEdgeData } from './transformData'
+import { PULSE_COLORS, type ProjectNodeData } from './transformData'
 import type { Project } from '@/types'
 
 // ─── CUSTOM NODE/EDGE TYPE REGISTRATION ──────────────────────────────────────

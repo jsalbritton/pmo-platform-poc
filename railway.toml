@@ -18,8 +18,10 @@
 # $PORT changes between deployments — always use the env var.
 
 [build]
-# Railway detects Python automatically from requirements.txt.
-# No build command needed — Railway runs pip install -r requirements.txt.
+# Explicit Python build command — prevents Railway from auto-detecting Node.js
+# (package.json is present for the Vite frontend) and running npm run build.
+# Railway must install Python deps for the FastAPI api/ service only.
+buildCommand = "pip install -r api/requirements.txt"
 
 [deploy]
 # Start uvicorn from the api/ subdirectory.
