@@ -38,6 +38,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+// NOTE: inner tab panels use @starting-style CSS (enter-fade) instead of motion.div
 import { useWorkItem }       from './useWorkItem'
 import { WorkItemHeader }    from './components/WorkItemHeader'
 import { WorkItemTitle }     from './components/WorkItemTitle'
@@ -60,9 +61,9 @@ function TimeTab({ item }: { item: import('./workItem.types').WorkItemFull }) {
   if (item.time_entries.length === 0) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-2 py-16 text-center px-6">
-        <p className="text-sm text-slate-500">No time logged yet</p>
+        <p className="text-sm text-gray-500">No time logged yet</p>
         {estimated > 0 && (
-          <p className="text-xs text-slate-600">{estimated}h estimated</p>
+          <p className="text-xs text-gray-400">{estimated}h estimated</p>
         )}
       </div>
     )
@@ -70,16 +71,16 @@ function TimeTab({ item }: { item: import('./workItem.types').WorkItemFull }) {
 
   return (
     <div className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
-      <div className="text-xs text-slate-500 mb-3">
+      <div className="text-xs text-gray-500 mb-3">
         {totalLogged}h logged{estimated > 0 ? ` of ${estimated}h estimated` : ''}
       </div>
       {item.time_entries.map((entry) => (
-        <div key={entry.id} className="flex items-center justify-between py-2 border-b border-white/5">
+        <div key={entry.id} className="flex items-center justify-between py-2 border-b border-gray-100">
           <div>
-            <div className="text-sm text-slate-300">{entry.date}</div>
-            {entry.notes && <div className="text-xs text-slate-500 mt-0.5">{entry.notes}</div>}
+            <div className="text-sm text-gray-700">{entry.date}</div>
+            {entry.notes && <div className="text-xs text-gray-500 mt-0.5">{entry.notes}</div>}
           </div>
-          <div className="text-sm font-medium text-slate-200 tabular-nums">{entry.hours}h</div>
+          <div className="text-sm font-medium text-gray-800 tabular-nums">{entry.hours}h</div>
         </div>
       ))}
     </div>
@@ -91,17 +92,17 @@ function TimeTab({ item }: { item: import('./workItem.types').WorkItemFull }) {
 function WorkItemSkeleton() {
   return (
     <div className="animate-pulse p-5 space-y-4">
-      <div className="h-4 bg-white/5 rounded w-1/3" />
-      <div className="h-7 bg-white/5 rounded w-3/4" />
+      <div className="h-4 bg-gray-100 rounded w-1/3" />
+      <div className="h-7 bg-gray-100 rounded w-3/4" />
       <div className="flex gap-2">
-        <div className="h-7 bg-white/5 rounded-lg w-24" />
-        <div className="h-7 bg-white/5 rounded-lg w-20" />
-        <div className="h-7 bg-white/5 rounded-lg w-28" />
+        <div className="h-7 bg-gray-100 rounded-lg w-24" />
+        <div className="h-7 bg-gray-100 rounded-lg w-20" />
+        <div className="h-7 bg-gray-100 rounded-lg w-28" />
       </div>
       <div className="space-y-2 pt-2">
-        <div className="h-3 bg-white/5 rounded w-full" />
-        <div className="h-3 bg-white/5 rounded w-5/6" />
-        <div className="h-3 bg-white/5 rounded w-4/6" />
+        <div className="h-3 bg-gray-100 rounded w-full" />
+        <div className="h-3 bg-gray-100 rounded w-5/6" />
+        <div className="h-3 bg-gray-100 rounded w-4/6" />
       </div>
     </div>
   )
@@ -198,8 +199,8 @@ export function WorkItemDetail({
             }}
             className={`
               fixed top-0 right-0 bottom-0 z-40
-              bg-[#0d1117] border-l border-white/8
-              flex flex-col shadow-2xl
+              bg-white border-l border-gray-200
+              flex flex-col shadow-xl
               transition-[width]
               ${isExpanded ? 'w-full' : 'w-[min(700px,55vw)]'}
             `}
@@ -220,7 +221,7 @@ export function WorkItemDetail({
             {isLoading && <WorkItemSkeleton />}
 
             {isError && (
-              <div className="flex-1 flex items-center justify-center text-sm text-red-400 p-8 text-center">
+              <div className="flex-1 flex items-center justify-center text-sm text-red-600 p-8 text-center">
                 Failed to load work item. Check your connection and try again.
               </div>
             )}
@@ -232,7 +233,7 @@ export function WorkItemDetail({
                 <div className="flex-1 flex flex-col min-w-0 min-h-0">
 
                   {/* Scrollable meta section */}
-                  <div className="overflow-y-auto flex-shrink-0 border-b border-white/5" style={{ maxHeight: '55%' }}>
+                  <div className="overflow-y-auto flex-shrink-0 border-b border-gray-100" style={{ maxHeight: '55%' }}>
                     <WorkItemTitle
                       itemId={item.id}
                       title={item.title}
@@ -256,70 +257,44 @@ export function WorkItemDetail({
                     item={item}
                   />
 
-                  {/* Tab content — fills remaining height */}
+                  {/* Tab content — fills remaining height.
+                      CSS @starting-style (enter-fade) handles the fade-in
+                      on mount. No AnimatePresence needed — new tab appears
+                      immediately and fades in, old tab unmounts instantly.
+                      This eliminates the mode="wait" double-delay jank. */}
                   <div className="flex-1 flex flex-col min-h-0">
-                    <AnimatePresence mode="wait" initial={false}>
-                      {activeTab === 'comments' && (
-                        <motion.div
-                          key="comments"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={  { opacity: 0 }}
-                          transition={{ duration: 0.1 }}
-                          className="flex-1 flex flex-col min-h-0"
-                        >
-                          <CommentThread
-                            comments={item.comments}
-                            workItemId={item.id}
-                            currentUserId={currentUserId}
-                            composerRef={composerRef}
-                          />
-                        </motion.div>
-                      )}
+                    {activeTab === 'comments' && (
+                      <div key="comments" className="enter-fade flex-1 flex flex-col min-h-0">
+                        <CommentThread
+                          comments={item.comments}
+                          workItemId={item.id}
+                          currentUserId={currentUserId}
+                          composerRef={composerRef}
+                        />
+                      </div>
+                    )}
 
-                      {activeTab === 'activity' && (
-                        <motion.div
-                          key="activity"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={  { opacity: 0 }}
-                          transition={{ duration: 0.1 }}
-                          className="flex-1 flex flex-col min-h-0"
-                        >
-                          <ActivityFeed entries={item.activity} />
-                        </motion.div>
-                      )}
+                    {activeTab === 'activity' && (
+                      <div key="activity" className="enter-fade flex-1 flex flex-col min-h-0">
+                        <ActivityFeed entries={item.activity} />
+                      </div>
+                    )}
 
-                      {activeTab === 'attachments' && (
-                        <motion.div
-                          key="attachments"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={  { opacity: 0 }}
-                          transition={{ duration: 0.1 }}
-                          className="flex-1 flex flex-col min-h-0"
-                        >
-                          <AttachmentPanel
-                            attachments={item.attachments}
-                            workItemId={item.id}
-                            projectId={item.project_id}
-                          />
-                        </motion.div>
-                      )}
+                    {activeTab === 'attachments' && (
+                      <div key="attachments" className="enter-fade flex-1 flex flex-col min-h-0">
+                        <AttachmentPanel
+                          attachments={item.attachments}
+                          workItemId={item.id}
+                          projectId={item.project_id}
+                        />
+                      </div>
+                    )}
 
-                      {activeTab === 'time' && (
-                        <motion.div
-                          key="time"
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          exit={  { opacity: 0 }}
-                          transition={{ duration: 0.1 }}
-                          className="flex-1 flex flex-col min-h-0"
-                        >
-                          <TimeTab item={item} />
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                    {activeTab === 'time' && (
+                      <div key="time" className="enter-fade flex-1 flex flex-col min-h-0">
+                        <TimeTab item={item} />
+                      </div>
+                    )}
                   </div>
                 </div>
 

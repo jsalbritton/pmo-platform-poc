@@ -78,6 +78,7 @@ export interface Project {
   pulse_condition:  PulseCondition | null    // healthy/watch/elevated/critical/dormant
   pulse_momentum:   PulseMomentum | null     // recovering/stable/declining/volatile
   pulse_signals:    PulseSignal[] | null     // elevated signal dimensions: budget, schedule, …
+  excluded_signals: string[] | null         // signal categories opted out of scoring
   pulse_updated_at: string | null
   created_at: string
   updated_at: string

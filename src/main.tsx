@@ -3,7 +3,13 @@ import ReactDOM from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools'
 import App from '@/App'
+import { initMonitoring } from '@/lib/monitoring'
 import '@/index.css'
+
+// Initialise Sentry + wire Core Web Vitals BEFORE React renders.
+// Any error thrown during the initial render is captured by Sentry.
+// Called unconditionally — initMonitoring() is a no-op when VITE_SENTRY_DSN is absent.
+initMonitoring()
 
 /**
  * QueryClient — the central cache for all server state.

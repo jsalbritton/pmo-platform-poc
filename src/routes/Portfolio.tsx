@@ -1,186 +1,185 @@
 /**
- * Portfolio — /portfolio
+ * Portfolio — /portfolio   ·   COMMAND CENTER
  *
- * 4-Tab Director Intelligence Platform (light mode)
- *
- *   Tab 1  Dashboard  — KPI hero + status donut + health distribution + attention table
- *   Tab 2  List       — sortable/filterable table, risk labels, budget indicator
- *   Tab 3  Cards      — project card grid with health ring + budget bar
- *   Tab 4  Roadmap    — CSS/SVG Gantt grouped by vertical, today line, go-live diamonds
- *
- * Design principle: color is semantic, not decorative.
- *   Green (≥70) = on track, Amber (40-69) = at risk, Red (<40) = critical
- *   These thresholds match usePortfolioStats — one truth across all views.
- *
- * 21 CFR Part 11: no writes from this route — read-only portfolio view.
+ * Design philosophy: density + clarity.
+ *   — Critical/At-Risk projects shown as dense table rows (3x more visible)
+ *   — Priority Focus: top 5 worst projects surfaced above all else
+ *   — On Hold / Planning separated into collapsible "Parked" section
+ *   — Multi-select domain filter for cross-domain portfolio views
+ *   — Color as signal only: green/amber/red for health status
  */
 
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
 import {
-  createColumnHelper,
-  flexRender,
-  getCoreRowModel,
-  getSortedRowModel,
-  getFilteredRowModel,
-  useReactTable,
-  type SortingState,
-} from '@tanstack/react-table'
-import {
+  Briefcase,
+  Warning,
+  CheckCircle,
+  // XCircle, // reserved for delete actions (Sprint 2)
+  ArrowRight,
+  ShieldWarning,
   ArrowUp,
   ArrowDown,
   ArrowsDownUp,
-  MagnifyingGlass,
-  ArrowClockwise,
-  Briefcase,
-  Rows,
-  SquaresFour,
-  ChartBar,
   MapTrifold,
-  Warning,
-  CheckCircle,
-  XCircle,
-  ArrowRight,
-  CalendarBlank,
-  ShieldWarning,
+  Rows,
+  Lightning,
+  // TrendUp, TrendDown, Minus — reserved for MOMENTUM_CFG (Sprint 1B)
+  CaretDown,
+  CaretRight,
+  Target,
+  Buildings,
+  X,
 } from '@phosphor-icons/react'
-import { useState, useEffect, useRef, useMemo } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useProjects, usePortfolioStats } from '@/hooks/useProjects'
-import type { Project, ProjectStatus, PulseCondition, PulseMomentum } from '@/types'
+import type { ProjectWithOwner } from '@/hooks/useProjects'
+import type { Project, ProjectStatus, PulseCondition } from '@/types'
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
 
-type TabId = 'dashboard' | 'list' | 'cards' | 'roadmap'
+type TabId = 'command' | 'list' | 'roadmap'
+type FilterStatus = 'all' | 'critical' | 'at_risk' | 'on_track'
 
-// ─── HEALTH UTILITIES (light mode) ────────────────────────────────────────────
+// ─── HEALTH UTILITIES ─────────────────────────────────────────────────────────
 
-function healthColor(score: number | null) {
+function healthCfg(score: number | null) {
   if (score === null) return {
-    border: 'border-slate-200', text: 'text-slate-400',
-    bg: 'bg-slate-50', fill: '#94a3b8', bar: 'bg-slate-300',
-    chip: 'bg-slate-100 text-slate-500 border-slate-200',
+    ring: '#d1d5db', fill: '#9ca3af', text: 'text-gray-400',
+    leftBorder: 'border-l-gray-200',
+    badgeBg: 'bg-gray-50', badgeText: 'text-gray-500', badgeBorder: 'border-gray-200',
   }
   if (score >= 70) return {
-    border: 'border-emerald-400', text: 'text-emerald-600',
-    bg: 'bg-emerald-50', fill: '#10b981', bar: 'bg-emerald-500',
-    chip: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    ring: '#10b981', fill: '#059669', text: 'text-emerald-600',
+    leftBorder: 'border-l-emerald-400',
+    badgeBg: 'bg-emerald-50', badgeText: 'text-emerald-700', badgeBorder: 'border-emerald-200',
   }
-  if (score >= 40) return {
-    border: 'border-amber-400', text: 'text-amber-600',
-    bg: 'bg-amber-50', fill: '#f59e0b', bar: 'bg-amber-500',
-    chip: 'bg-amber-50 text-amber-700 border-amber-200',
+  if (score >= 50) return {
+    ring: '#f59e0b', fill: '#d97706', text: 'text-amber-600',
+    leftBorder: 'border-l-amber-400',
+    badgeBg: 'bg-amber-50', badgeText: 'text-amber-700', badgeBorder: 'border-amber-200',
+  }
+  if (score >= 30) return {
+    ring: '#f97316', fill: '#ea580c', text: 'text-orange-600',
+    leftBorder: 'border-l-orange-400',
+    badgeBg: 'bg-orange-50', badgeText: 'text-orange-700', badgeBorder: 'border-orange-200',
   }
   return {
-    border: 'border-red-400', text: 'text-red-600',
-    bg: 'bg-red-50', fill: '#ef4444', bar: 'bg-red-500',
-    chip: 'bg-red-50 text-red-700 border-red-200',
+    ring: '#ef4444', fill: '#dc2626', text: 'text-red-600',
+    leftBorder: 'border-l-red-400',
+    badgeBg: 'bg-red-50', badgeText: 'text-red-700', badgeBorder: 'border-red-200',
   }
 }
 
 function healthLabel(score: number | null) {
   if (score === null) return '—'
-  if (score >= 70) return 'Healthy'
-  if (score >= 50) return 'Watch'
+  if (score >= 70) return 'On Track'
+  if (score >= 50) return 'At Risk'
   if (score >= 30) return 'Elevated'
   return 'Critical'
 }
 
-// ─── PULSE MODEL ──────────────────────────────────────────────────────────────
-// Replaces raw number chips with condition language across all personas.
-// Executives read condition (do I need to act?). PMs read signals (what's wrong?).
-// Directors read momentum (which way is it going?). SAs read signals for tech depth.
+// ─── PULSE CONFIG ─────────────────────────────────────────────────────────────
 
-function pulseConditionConfig(condition: PulseCondition | string | null | undefined) {
+function pulseConditionCfg(condition: PulseCondition | string | null | undefined) {
   switch (condition) {
-    case 'healthy':  return { label: 'Healthy',  cls: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-500', border: 'border-emerald-400', fill: '#10b981' }
-    case 'watch':    return { label: 'Watch',    cls: 'bg-amber-50 text-amber-700 border-amber-200',       dot: 'bg-amber-500',   border: 'border-amber-400',   fill: '#f59e0b' }
-    case 'elevated': return { label: 'Elevated', cls: 'bg-orange-50 text-orange-700 border-orange-200',   dot: 'bg-orange-500',  border: 'border-orange-400',  fill: '#f97316' }
-    case 'critical': return { label: 'Critical', cls: 'bg-red-50 text-red-700 border-red-200',             dot: 'bg-red-500',     border: 'border-red-400',     fill: '#ef4444' }
-    case 'dormant':  return { label: 'Dormant',  cls: 'bg-slate-100 text-slate-500 border-slate-200',     dot: 'bg-slate-400',   border: 'border-slate-300',   fill: '#94a3b8' }
-    default:         return { label: '—',         cls: 'bg-slate-100 text-slate-400 border-slate-200',     dot: 'bg-slate-300',   border: 'border-slate-200',   fill: '#cbd5e1' }
+    case 'healthy':  return { label: 'On Track',  textColor: 'text-emerald-700', dot: '#10b981', leftBorder: 'border-l-emerald-300' }
+    case 'watch':    return { label: 'At Risk',   textColor: 'text-amber-700',   dot: '#f59e0b', leftBorder: 'border-l-amber-300'   }
+    case 'elevated': return { label: 'Elevated',  textColor: 'text-orange-700',  dot: '#f97316', leftBorder: 'border-l-orange-400'  }
+    case 'critical': return { label: 'Critical',  textColor: 'text-red-700',     dot: '#ef4444', leftBorder: 'border-l-red-400'     }
+    case 'dormant':  return { label: 'Dormant',   textColor: 'text-gray-400',    dot: '#9ca3af', leftBorder: 'border-l-gray-200'    }
+    default:         return { label: '—',          textColor: 'text-gray-400',    dot: '#d1d5db', leftBorder: 'border-l-gray-200'    }
   }
 }
 
-const MOMENTUM_CONFIG: Record<string, { arrow: string; color: string; title: string }> = {
-  recovering: { arrow: '↗', color: 'text-emerald-600', title: 'Recovering — health improving' },
-  declining:  { arrow: '↘', color: 'text-red-500',     title: 'Declining — health worsening' },
-  volatile:   { arrow: '⚡', color: 'text-amber-600',  title: 'Volatile — large score swings' },
-  stable:     { arrow: '→', color: 'text-slate-400',   title: 'Stable — no significant change' },
-}
-
-const SIGNAL_CONFIG: Record<string, string> = {
-  budget:    'bg-rose-50 text-rose-700 border border-rose-200',
-  schedule:  'bg-amber-50 text-amber-700 border border-amber-200',
-  delivery:  'bg-orange-50 text-orange-700 border border-orange-200',
-  scope:     'bg-purple-50 text-purple-700 border border-purple-200',
-  risks:     'bg-red-50 text-red-700 border border-red-200',
-  execution: 'bg-blue-50 text-blue-700 border border-blue-200',
+const STATUS_CFG: Record<ProjectStatus, { label: string; dot: string }> = {
+  planning:  { label: 'Planning',  dot: 'bg-violet-400'  },
+  active:    { label: 'Active',    dot: 'bg-emerald-400' },
+  on_track:  { label: 'On Track',  dot: 'bg-emerald-400' },
+  at_risk:   { label: 'At Risk',   dot: 'bg-amber-400'   },
+  critical:  { label: 'Critical',  dot: 'bg-red-400'     },
+  completed: { label: 'Completed', dot: 'bg-blue-400'    },
+  on_hold:   { label: 'On Hold',   dot: 'bg-gray-400'    },
+  cancelled: { label: 'Cancelled', dot: 'bg-gray-300'    },
 }
 
 const SIGNAL_LABELS: Record<string, string> = {
   budget: 'Budget', schedule: 'Schedule', delivery: 'Delivery',
-  scope: 'Scope', risks: 'Risks', execution: 'Execution',
+  scope: 'Scope', risks: 'Risk', execution: 'Execution',
 }
 
-// Pulse condition badge + momentum arrow in one inline unit
-function PulseBadge({ condition, momentum, showMomentum = true }: {
-  condition: PulseCondition | string | null | undefined
-  momentum?: PulseMomentum | string | null
-  showMomentum?: boolean
-}) {
-  const cfg = pulseConditionConfig(condition)
-  const mom = momentum ? MOMENTUM_CONFIG[momentum] : null
-  return (
-    <div className="flex items-center gap-1">
-      <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border ${cfg.cls}`}>
-        {cfg.label}
-      </span>
-      {showMomentum && mom && (
-        <span className={`text-[12px] font-bold leading-none ${mom.color}`} title={mom.title}>
-          {mom.arrow}
-        </span>
-      )}
-    </div>
-  )
+/* Momentum config — reserved for expanded project row detail (Sprint 1B)
+const MOMENTUM_CFG: Record<string, { icon: React.ReactNode; title: string; color: string }> = {
+  recovering: { icon: <TrendUp size={11} />,  title: 'Recovering', color: 'text-emerald-500' },
+  declining:  { icon: <TrendDown size={11} />, title: 'Declining',  color: 'text-red-400'    },
+  volatile:   { icon: <Lightning size={11} />, title: 'Volatile',   color: 'text-amber-500'  },
+  stable:     { icon: <Minus size={11} />,     title: 'Stable',     color: 'text-gray-400'   },
+}
+*/
+
+const CONDITION_RANK: Record<string, number> = { critical: 0, elevated: 1, dormant: 2, watch: 3, healthy: 4 }
+
+const PARKED_STATUSES = new Set(['on_hold', 'planning', 'cancelled', 'completed'])
+
+// ─── OWNER / TIME UTILITIES ─────────────────────────────────────────────────
+
+/** Extract up to 2 initials from display_name or full_name */
+function ownerInitials(owner: ProjectWithOwner['owner']): string {
+  if (!owner) return '?'
+  const name = owner.display_name || owner.full_name || ''
+  const parts = name.trim().split(/\s+/)
+  if (parts.length >= 2) return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
+  return (name[0] ?? '?').toUpperCase()
 }
 
-// Signal dimension chips — the "why" behind the condition
-function SignalChips({ signals, max = 3 }: { signals: string[] | null | undefined; max?: number }) {
-  if (!signals || signals.length === 0) return null
-  const shown = signals.slice(0, max)
-  const extra = signals.length - max
-  return (
-    <div className="flex items-center gap-1 flex-wrap">
-      {shown.map(s => (
-        <span key={s} className={`px-1.5 py-0 rounded text-[9px] font-semibold leading-5 ${SIGNAL_CONFIG[s] ?? 'bg-slate-50 text-slate-500 border border-slate-200'}`}>
-          {SIGNAL_LABELS[s] ?? s}
-        </span>
-      ))}
-      {extra > 0 && <span className="text-[9px] text-slate-400">+{extra}</span>}
-    </div>
-  )
+/** Human-friendly relative time: "2h ago", "3d ago", "Mar 15" */
+function relativeTime(iso: string | null): string {
+  if (!iso) return '—'
+  const ms = Date.now() - new Date(iso).getTime()
+  const mins = Math.floor(ms / 60000)
+  if (mins < 1)   return 'just now'
+  if (mins < 60)  return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24)   return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  if (days < 14)  return `${days}d ago`
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
-// ─── STATUS CONFIG (light mode) ───────────────────────────────────────────────
-
-const STATUS_STYLES: Record<ProjectStatus, { label: string; dot: string; text: string; badge: string }> = {
-  'planning':  { label: 'Planning',  dot: 'bg-violet-500',  text: 'text-violet-600',  badge: 'bg-violet-50 text-violet-700 border-violet-200' },
-  'active':    { label: 'Active',    dot: 'bg-emerald-500', text: 'text-emerald-600', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  'on_track':  { label: 'On Track',  dot: 'bg-emerald-500', text: 'text-emerald-600', badge: 'bg-emerald-50 text-emerald-700 border-emerald-200' },
-  'at_risk':   { label: 'At Risk',   dot: 'bg-amber-500',   text: 'text-amber-600',   badge: 'bg-amber-50 text-amber-700 border-amber-200' },
-  'critical':  { label: 'Critical',  dot: 'bg-red-500',     text: 'text-red-600',     badge: 'bg-red-50 text-red-700 border-red-200' },
-  'completed': { label: 'Completed', dot: 'bg-blue-500',    text: 'text-blue-600',    badge: 'bg-blue-50 text-blue-700 border-blue-200' },
-  'on_hold':   { label: 'On Hold',   dot: 'bg-slate-400',   text: 'text-slate-500',   badge: 'bg-slate-100 text-slate-600 border-slate-200' },
-  'cancelled': { label: 'Cancelled', dot: 'bg-slate-300',   text: 'text-slate-400',   badge: 'bg-slate-50 text-slate-500 border-slate-200' },
+/** Consistent colour for initials avatar — deterministic from name string */
+const AVATAR_COLORS = [
+  'bg-blue-500', 'bg-indigo-500', 'bg-violet-500', 'bg-purple-500',
+  'bg-pink-500', 'bg-rose-500', 'bg-red-500', 'bg-orange-500',
+  'bg-amber-500', 'bg-emerald-500', 'bg-teal-500', 'bg-cyan-500',
+]
+function avatarColor(name: string): string {
+  let hash = 0
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash)
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
 }
 
-const PRIORITY_STYLES: Record<string, string> = {
-  critical: 'text-red-600',
-  high:     'text-amber-600',
-  medium:   'text-blue-600',
-  low:      'text-slate-400',
+// ─── DOMAIN DISPLAY NAMES ────────────────────────────────────────────────────
+// Raw DB values → human-readable short labels for the UI.
+// Add new mappings here as domains are added to the portfolio.
+
+const DOMAIN_LABELS: Record<string, string> = {
+  warehouse_distribution: 'W&D',
+  warehouse:              'Warehouse',
+  transportation:         'Transportation',
+  infrastructure:         'Infrastructure',
+  shared_services:        'Shared Services',
+  data_analytics:         'Data & Analytics',
+  security:               'Security',
+  erp:                    'ERP',
+  other:                  'Other',
 }
 
-// ─── ANIMATED COUNT ────────────────────────────────────────────────────────────
+function domainLabel(raw: string | null | undefined): string {
+  if (!raw) return '—'
+  return DOMAIN_LABELS[raw] ?? raw.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+}
+
+// ─── ANIMATED COUNT ───────────────────────────────────────────────────────────
 
 function AnimatedCount({ value, isLoading }: { value: number; isLoading: boolean }) {
   const [current, setCurrent] = useState(0)
@@ -191,91 +190,301 @@ function AnimatedCount({ value, isLoading }: { value: number; isLoading: boolean
     const start = performance.now()
     const duration = 900
     const from = current
-
     const step = (now: number) => {
       const progress = Math.min((now - start) / duration, 1)
       const eased = 1 - Math.pow(1 - progress, 3)
       setCurrent(Math.round(from + (value - from) * eased))
       if (progress < 1) animRef.current = requestAnimationFrame(step)
     }
-
     animRef.current = requestAnimationFrame(step)
     return () => { if (animRef.current) cancelAnimationFrame(animRef.current) }
   }, [value, isLoading]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (isLoading) return <span className="inline-block w-10 h-7 bg-slate-100 rounded animate-pulse" />
+  if (isLoading) return <span className="inline-block w-10 h-8 bg-gray-100 rounded animate-pulse" />
   return <>{current}</>
 }
 
-// ─── STATS HERO (light mode) ──────────────────────────────────────────────────
+// ─── HEALTH STATUS BADGE ─────────────────────────────────────────────────────
 
-function StatsHero() {
-  const { data: stats, isLoading } = usePortfolioStats()
+function HealthBadge({ score, compact = false }: { score: number | null; compact?: boolean }) {
+  const label = healthLabel(score)
+  const cfg   = healthCfg(score)
 
+  if (score === null) {
+    return <span className="text-xs text-gray-300">—</span>
+  }
+
+  return (
+    <span
+      title={`Health score: ${score}/100`}
+      className={`
+        inline-flex items-center gap-1.5 flex-shrink-0
+        ${compact ? 'text-[10px]' : 'text-[11px]'} font-semibold
+        px-2 py-0.5 rounded-full border
+        ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}
+      `}
+    >
+      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cfg.ring }} />
+      {label}
+    </span>
+  )
+}
+
+// ─── MOMENTUM CHIP ───────────────────────────────────────────────────────────
+// Compact inline indicator showing project trajectory.
+// Hover reveals recent (1-2 week) reasons for the trend — distinct from the
+// holistic StatusPill tooltip which shows overall project health.
+
+function MomentumChip({ momentum, project }: { momentum?: string | null; project?: Project }) {
+  const [showTip, setShowTip] = useState(false)
+
+  if (!momentum || momentum === 'stable') return null
+
+  const cfg: Record<string, { label: string; icon: string; bg: string; text: string; border: string }> = {
+    declining:  { label: 'Declining',  icon: '↓', bg: 'bg-red-50',     text: 'text-red-600',     border: 'border-red-200' },
+    volatile:   { label: 'Volatile',   icon: '~', bg: 'bg-amber-50',   text: 'text-amber-600',   border: 'border-amber-200' },
+    recovering: { label: 'Recovering', icon: '↑', bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-200' },
+  }
+
+  const c = cfg[momentum]
+  if (!c) return null
+
+  // Build recent-trend reasons (1-2 week view)
+  // Filter out any signals the project has opted out of
+  const reasons: string[] = []
+  const actions: string[] = []
+  if (project) {
+    const excluded = new Set(project.excluded_signals ?? [])
+    const signals = (project.pulse_signals ?? []).filter(s => !excluded.has(s))
+    if (momentum === 'declining') {
+      if (signals.includes('schedule')) reasons.push('Schedule slipping — missed recent milestone')
+      if (signals.includes('budget'))   reasons.push('Budget burn rate exceeding plan')
+      if (signals.includes('delivery')) reasons.push('Delivery velocity dropped last 2 sprints')
+      if (signals.includes('scope'))    reasons.push('Scope creep detected — new items added')
+      if (signals.includes('risks'))    reasons.push('Unmitigated risks escalated this week')
+      if (reasons.length === 0) reasons.push('Health score dropped in the last 2 weeks')
+      // Actionable recommendations
+      if (signals.includes('schedule') || signals.includes('delivery'))
+        actions.push('Schedule project review with PM and tech lead')
+      if (signals.includes('budget'))
+        actions.push('Request updated forecast from finance')
+      if (signals.includes('scope'))
+        actions.push('Convene change control board to assess scope additions')
+      if (signals.includes('risks'))
+        actions.push('Escalate top risks to steering committee')
+      if (actions.length === 0)
+        actions.push('Schedule a health check with the project team')
+    } else if (momentum === 'volatile') {
+      reasons.push('Health score fluctuating — no stable trend')
+      if (signals.includes('schedule')) reasons.push('Timeline dates shifted multiple times')
+      if (signals.includes('delivery')) reasons.push('Sprint velocity inconsistent')
+      // Volatile = instability. The action is to stabilize, not firefight.
+      actions.push('Review recent scope or resource changes for root cause')
+      if (signals.includes('schedule'))
+        actions.push('Lock timeline baseline and reassess dependencies')
+      else
+        actions.push('Assign dedicated PM attention until trend stabilizes')
+    } else if (momentum === 'recovering') {
+      reasons.push('Health score improving over last 2 weeks')
+      if (signals.length > 0) reasons.push(`Remaining signals: ${signals.map(s => SIGNAL_LABELS[s] ?? s).join(', ')}`)
+      // Recovering = positive but fragile. Don't remove attention yet.
+      actions.push('Maintain current approach — do not reallocate resources yet')
+      if (signals.length > 0)
+        actions.push(`Monitor remaining ${signals.length} signal${signals.length > 1 ? 's' : ''} at next review`)
+    }
+  }
+
+  return (
+    <div
+      className="relative flex-shrink-0"
+      onMouseEnter={() => setShowTip(true)}
+      onMouseLeave={() => setShowTip(false)}
+    >
+      <span className={`
+        inline-flex items-center gap-1 flex-shrink-0 cursor-default
+        text-[9px] font-bold uppercase tracking-wide
+        px-1.5 py-0.5 rounded border
+        ${c.bg} ${c.text} ${c.border}
+      `}>
+        {c.icon} {c.label}
+      </span>
+
+      {showTip && (reasons.length > 0 || actions.length > 0) && (
+        <div className="absolute top-full left-0 mt-1.5 z-50 pointer-events-none">
+          <div className="bg-gray-900 text-white rounded-lg shadow-xl px-3 py-2.5 text-[11px] leading-relaxed w-72">
+            <div className="font-semibold mb-1.5 flex items-center gap-1.5">
+              <span>{c.icon}</span>
+              {c.label} — Last 2 Weeks
+            </div>
+            <ul className="space-y-1 text-gray-300">
+              {reasons.map((r, i) => (
+                <li key={i} className="flex items-start gap-1.5">
+                  <span className="text-gray-500 mt-0.5">•</span>
+                  {r}
+                </li>
+              ))}
+            </ul>
+            {actions.length > 0 && (
+              <>
+                <div className="border-t border-gray-700 mt-2 pt-2">
+                  <div className="font-semibold text-[10px] uppercase tracking-wider text-amber-400 mb-1">
+                    Recommended Action
+                  </div>
+                  <ul className="space-y-1 text-gray-200">
+                    {actions.map((a, i) => (
+                      <li key={i} className="flex items-start gap-1.5">
+                        <span className="text-amber-500 mt-0.5">→</span>
+                        {a}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="absolute -top-1 left-4 w-2 h-2 bg-gray-900 rotate-45" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── STATUS PILL WITH HOVER TOOLTIP ──────────────────────────────────────────
+// Single interactive pill that replaces HealthBadge + overdue text.
+// On hover, shows a dynamic popup explaining why the project is in this status.
+
+function StatusPill({ project }: { project: Project }) {
+  const [showTooltip, setShowTooltip] = useState(false)
+  const score = project.health_score ?? null
+  const label = healthLabel(score)
+  const cfg   = healthCfg(score)
+
+  if (score === null) {
+    return <span className="text-xs text-gray-300">—</span>
+  }
+
+  // Build tooltip reasons — filter out excluded signal categories
+  const reasons: string[] = []
+  const excluded = new Set(project.excluded_signals ?? [])
+  const signals = (project.pulse_signals ?? []).filter(s => !excluded.has(s))
+  if (signals.length > 0) {
+    reasons.push(`Triggered signals: ${signals.map(s => SIGNAL_LABELS[s] ?? s).join(', ')}`)
+  }
+
+  const days = project.target_end
+    ? Math.round((new Date(project.target_end).getTime() - Date.now()) / 86400000)
+    : null
+  if (days !== null && days < 0) {
+    reasons.push(`${Math.abs(days)} days past target end date`)
+  } else if (days !== null && days < 30) {
+    reasons.push(`${days} days until target end date`)
+  }
+
+  const mom = project.pulse_momentum
+  if (mom === 'declining') reasons.push('Trend: health score declining')
+  if (mom === 'volatile')  reasons.push('Trend: health score volatile')
+  if (mom === 'recovering') reasons.push('Trend: health score recovering')
+
+  if (reasons.length === 0) {
+    reasons.push(`Health score: ${score}/100`)
+  }
+
+  return (
+    <div
+      className="relative flex-shrink-0"
+      onMouseEnter={() => setShowTooltip(true)}
+      onMouseLeave={() => setShowTooltip(false)}
+    >
+      <span
+        className={`
+          inline-flex items-center gap-1.5 flex-shrink-0
+          text-[11px] font-semibold cursor-default
+          px-2.5 py-1 rounded-full border
+          ${cfg.badgeBg} ${cfg.badgeText} ${cfg.badgeBorder}
+          transition-shadow hover:shadow-md
+        `}
+      >
+        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: cfg.ring }} />
+        {label}
+        {mom && mom !== 'stable' && (
+          <span className={`ml-0.5 ${
+            mom === 'recovering' ? 'text-emerald-500' :
+            mom === 'declining'  ? 'text-red-400' :
+            'text-amber-500'
+          }`}>
+            {mom === 'recovering' ? '↑' : mom === 'declining' ? '↓' : '~'}
+          </span>
+        )}
+      </span>
+
+      {/* Hover tooltip */}
+      {showTooltip && (
+        <div className="absolute bottom-full right-0 mb-2 z-50 pointer-events-none">
+          <div className="bg-gray-900 text-white rounded-lg shadow-xl px-3 py-2.5 text-[11px] leading-relaxed w-56">
+            <div className="font-semibold mb-1.5 flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full" style={{ background: cfg.ring }} />
+              {label} — Score {score}/100
+            </div>
+            <ul className="space-y-1 text-gray-300">
+              {reasons.map((r, i) => (
+                <li key={i} className="flex items-start gap-1.5">
+                  <span className="text-gray-500 mt-0.5">•</span>
+                  {r}
+                </li>
+              ))}
+            </ul>
+          </div>
+          {/* Arrow */}
+          <div className="absolute -bottom-1 right-4 w-2 h-2 bg-gray-900 rotate-45" />
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── SIGNAL TEXT ──────────────────────────────────────────────────────────────
+
+function SignalText({ signals, max = 3 }: { signals: string[] | null | undefined; max?: number }) {
+  if (!signals || signals.length === 0) return null
+  const shown = signals.slice(0, max).map(s => SIGNAL_LABELS[s] ?? s)
+  const extra = signals.length - max
+  return (
+    <span className="text-[10px] text-gray-400">
+      {shown.join(' · ')}{extra > 0 ? ` +${extra}` : ''}
+    </span>
+  )
+}
+
+// ─── KPI STRIP ────────────────────────────────────────────────────────────────
+
+function KPIStrip({ activeCount, activeCounts }: {
+  activeCount: number
+  activeCounts: { onTrack: number; atRisk: number; critical: number; avgHealth: number }
+}) {
+  const { isLoading } = usePortfolioStats()
+
+  const total = Math.max(activeCount, 1)
   const cards = [
-    {
-      label: 'Total Projects',
-      value: stats?.total ?? 0,
-      icon:  <Briefcase size={18} weight="fill" className="text-slate-400" />,
-      accent: 'border-t-slate-300',
-      numColor: 'text-slate-900',
-      sub: null,
-    },
-    {
-      label: 'Healthy',
-      value: stats?.onTrack ?? 0,
-      icon:  <CheckCircle size={18} weight="fill" className="text-emerald-500" />,
-      accent: 'border-t-emerald-400',
-      numColor: 'text-emerald-700',
-      sub: stats ? `${Math.round((stats.onTrack / Math.max(stats.total, 1)) * 100)}% of portfolio` : null,
-    },
-    {
-      label: 'Watch',
-      value: stats?.atRisk ?? 0,
-      icon:  <Warning size={18} weight="fill" className="text-amber-500" />,
-      accent: 'border-t-amber-400',
-      numColor: 'text-amber-700',
-      sub: stats ? `${Math.round((stats.atRisk / Math.max(stats.total, 1)) * 100)}% of portfolio` : null,
-    },
-    {
-      label: 'Needs Action',
-      value: stats?.critical ?? 0,
-      icon:  <XCircle size={18} weight="fill" className="text-red-500" />,
-      accent: 'border-t-red-400',
-      numColor: 'text-red-700',
-      sub: stats ? `${Math.round((stats.critical / Math.max(stats.total, 1)) * 100)}% of portfolio` : null,
-    },
-    {
-      label: 'Avg Health',
-      value: stats?.avgHealthScore ?? 0,
-      icon:  null,
-      accent: stats ? `border-t-${stats.avgHealthScore >= 70 ? 'emerald' : stats.avgHealthScore >= 50 ? 'amber' : 'red'}-400` : 'border-t-slate-300',
-      numColor: stats ? healthColor(stats.avgHealthScore).text : 'text-slate-900',
-      sub: stats ? healthLabel(stats.avgHealthScore) : null,
-      isScore: true,
-    },
+    { label: 'Active Projects', value: activeCount,                   valueColor: 'text-gray-800',    sub: 'in execution',  accent: 'border-b-blue-400' },
+    { label: 'On Track',        value: activeCounts.onTrack,          valueColor: 'text-emerald-600', sub: `${Math.round((activeCounts.onTrack / total) * 100)}%`, accent: 'border-b-emerald-400' },
+    { label: 'At Risk',         value: activeCounts.atRisk,           valueColor: 'text-amber-600',   sub: `${Math.round((activeCounts.atRisk / total) * 100)}%`, accent: 'border-b-amber-400' },
+    { label: 'Critical',        value: activeCounts.critical,         valueColor: 'text-red-600',     sub: `${Math.round((activeCounts.critical / total) * 100)}%`, accent: 'border-b-red-400' },
+    { label: 'Avg Health',      value: activeCounts.avgHealth,        valueColor: healthCfg(activeCounts.avgHealth).text, sub: healthLabel(activeCounts.avgHealth), accent: activeCounts.avgHealth >= 70 ? 'border-b-emerald-400' : activeCounts.avgHealth >= 40 ? 'border-b-amber-400' : 'border-b-red-400' },
   ]
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
+    <div className="kpi-grid-rows grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 mb-5">
       {cards.map((card) => (
-        <div
-          key={card.label}
-          className={`bg-white rounded-xl border border-slate-200 border-t-2 ${card.accent} px-5 py-4 shadow-sm`}
-        >
-          <div className="flex items-center gap-2 mb-3">
-            {card.icon}
-            <span className="text-xs font-medium text-slate-500 uppercase tracking-wider">
-              {card.label}
-            </span>
-          </div>
-          <div className="flex items-baseline gap-2">
-            <span className={`text-3xl font-bold tabular-nums tracking-tight ${card.numColor}`}>
-              <AnimatedCount value={card.value} isLoading={isLoading} />
-            </span>
-          </div>
+        <div key={card.label}
+          className={`kpi-card-rows rounded-xl border border-gray-100 bg-white px-4 py-3.5 shadow-sm border-b-2 ${card.accent}`}>
+          <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">
+            {card.label}
+          </p>
+          <p className={`text-2xl font-bold tabular-nums tracking-tight ${card.valueColor}`}>
+            <AnimatedCount value={card.value} isLoading={isLoading} />
+          </p>
           {card.sub && !isLoading && (
-            <p className="text-xs text-slate-400 mt-1">{card.sub}</p>
+            <p className="text-[10px] text-gray-400 mt-1">{card.sub}</p>
           )}
         </div>
       ))}
@@ -283,1027 +492,954 @@ function StatsHero() {
   )
 }
 
-// ─── SVG DONUT CHART ──────────────────────────────────────────────────────────
+// ─── MULTI-SELECT DOMAIN FILTER ──────────────────────────────────────────────
 
-function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
-  const rad = ((angleDeg - 90) * Math.PI) / 180
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
-}
-
-function arcPath(cx: number, cy: number, r: number, start: number, end: number) {
-  const s = polarToCartesian(cx, cy, r, start)
-  const e = polarToCartesian(cx, cy, r, end)
-  const large = end - start > 180 ? 1 : 0
-  return `M ${s.x.toFixed(2)} ${s.y.toFixed(2)} A ${r} ${r} 0 ${large} 1 ${e.x.toFixed(2)} ${e.y.toFixed(2)}`
-}
-
-function StatusDonut({ projects }: { projects: Project[] }) {
-  const counts = useMemo(() => {
-    const map: Record<string, number> = {}
-    for (const p of projects) {
-      map[p.status] = (map[p.status] ?? 0) + 1
-    }
-    return map
-  }, [projects])
-
-  const segments = [
-    { key: 'active',    label: 'Active',    color: '#10b981' },
-    { key: 'planning',  label: 'Planning',  color: '#8b5cf6' },
-    { key: 'completed', label: 'Completed', color: '#3b82f6' },
-    { key: 'on_hold',   label: 'On Hold',   color: '#94a3b8' },
-    { key: 'on_track',  label: 'On Track',  color: '#34d399' },
-    { key: 'at_risk',   label: 'At Risk',   color: '#f59e0b' },
-    { key: 'critical',  label: 'Critical',  color: '#ef4444' },
-    { key: 'cancelled', label: 'Cancelled', color: '#cbd5e1' },
-  ].filter(s => (counts[s.key] ?? 0) > 0)
-
-  const total = projects.length
-  if (total === 0) return null
-
-  const cx = 80, cy = 80, r = 60, hole = 38
-  let angle = 0
-  const arcs = segments.map(s => {
-    const pct = (counts[s.key] ?? 0) / total
-    const sweep = pct * 360
-    const start = angle
-    angle += sweep
-    return { ...s, count: counts[s.key] ?? 0, pct, start, end: angle }
-  })
+function DomainPills({
+  verticals,
+  selected,
+  onToggle,
+}: {
+  verticals: string[]
+  selected:  Set<string>
+  onToggle:  (v: string) => void
+}) {
+  if (verticals.length <= 1) return null
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-      <h3 className="text-sm font-semibold text-slate-700 mb-4">Status Distribution</h3>
-      <div className="flex items-center gap-6">
-        <div className="flex-shrink-0 relative">
-          <svg width="160" height="160" viewBox="0 0 160 160">
-            {/* Background ring */}
-            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f1f5f9" strokeWidth={22} />
-            {arcs.map((a, i) => (
-              a.end - a.start > 0.5 && (
-                <path
-                  key={i}
-                  d={arcPath(cx, cy, r, a.start, a.end - 0.5)}
-                  fill="none"
-                  stroke={a.color}
-                  strokeWidth={22}
-                  strokeLinecap="round"
-                />
-              )
-            ))}
-            {/* Center hole */}
-            <circle cx={cx} cy={cy} r={hole} fill="white" />
-            {/* Center text */}
-            <text x={cx} y={cy - 8} textAnchor="middle" fontSize="22" fontWeight="700" fill="#0f172a" fontFamily="ui-sans-serif,system-ui,sans-serif">
-              {total}
-            </text>
-            <text x={cx} y={cy + 10} textAnchor="middle" fontSize="10" fill="#94a3b8" fontFamily="ui-sans-serif,system-ui,sans-serif">
-              projects
-            </text>
-          </svg>
-        </div>
-        <div className="flex-1 space-y-2 min-w-0">
-          {arcs.map(a => (
-            <div key={a.key} className="flex items-center gap-2">
-              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: a.color }} />
-              <span className="text-xs text-slate-600 flex-1 truncate">{a.label}</span>
-              <span className="text-xs font-semibold text-slate-800 tabular-nums">{a.count}</span>
-              <span className="text-[10px] text-slate-400 tabular-nums w-8 text-right">{Math.round(a.pct * 100)}%</span>
-            </div>
-          ))}
-        </div>
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Domain</p>
+      <div className="flex flex-wrap items-center gap-2">
+        <Buildings size={14} className="text-gray-400 mr-0.5" />
+        {verticals.map(v => {
+          const isActive = selected.has(v)
+          return (
+            <button
+              key={v}
+              onClick={() => onToggle(v)}
+              className={`
+                flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-[12px] font-semibold
+                border transition-all cursor-pointer
+                ${isActive
+                  ? 'bg-[#002a7a] text-white border-[#002a7a] shadow-lg shadow-blue-900/25 ring-1 ring-blue-400/30'
+                  : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300 hover:shadow-md shadow-sm'
+                }
+              `}
+            >
+              {domainLabel(v)}
+              {isActive && <X size={11} className="text-white/70" />}
+            </button>
+          )
+        })}
+        {selected.size > 0 && (
+          <button
+            onClick={() => selected.forEach(v => onToggle(v))}
+            className="text-[11px] text-gray-400 hover:text-gray-600 ml-1 cursor-pointer"
+          >
+            Clear all
+          </button>
+        )}
       </div>
     </div>
   )
 }
 
-// ─── HEALTH DISTRIBUTION ──────────────────────────────────────────────────────
+// ─── FILTER BAR ──────────────────────────────────────────────────────────────
 
-function HealthDistribution({ projects }: { projects: Project[] }) {
-  const active = projects.filter(p => p.status !== 'completed' && p.status !== 'cancelled' && p.status !== 'on_hold')
-  const total = active.length || 1
-
-  // Use Pulse condition when available, fall back to health_score thresholds
-  const healthy  = active.filter(p => p.pulse_condition ? p.pulse_condition === 'healthy'  : (p.health_score ?? 50) >= 70).length
-  const watch    = active.filter(p => p.pulse_condition ? p.pulse_condition === 'watch'    : ((p.health_score ?? 50) >= 50 && (p.health_score ?? 50) < 70)).length
-  const elevated = active.filter(p => p.pulse_condition ? p.pulse_condition === 'elevated' : ((p.health_score ?? 50) >= 30 && (p.health_score ?? 50) < 50)).length
-  const critical = active.filter(p => p.pulse_condition ? p.pulse_condition === 'critical' : (p.health_score ?? 50) < 30).length
-  const dormant  = active.filter(p => p.pulse_condition === 'dormant').length
-
-  const bars = [
-    { label: 'Healthy',  count: healthy,  color: 'bg-emerald-500', textColor: 'text-emerald-700', bgChip: 'bg-emerald-50', desc: 'Self-managed, no intervention' },
-    { label: 'Watch',    count: watch,    color: 'bg-amber-500',   textColor: 'text-amber-700',   bgChip: 'bg-amber-50',   desc: 'PM review this week' },
-    { label: 'Elevated', count: elevated, color: 'bg-orange-500',  textColor: 'text-orange-700',  bgChip: 'bg-orange-50',  desc: 'Director should be in the loop' },
-    { label: 'Critical', count: critical, color: 'bg-red-500',     textColor: 'text-red-700',     bgChip: 'bg-red-50',     desc: 'Executive visibility required' },
-    ...(dormant > 0 ? [{ label: 'Dormant', count: dormant, color: 'bg-slate-400', textColor: 'text-slate-600', bgChip: 'bg-slate-100', desc: 'No recent activity detected' }] : []),
+function FilterBar({
+  active,
+  onFilter,
+  counts,
+}: {
+  active:   FilterStatus
+  onFilter: (f: FilterStatus) => void
+  counts:   { all: number; critical: number; at_risk: number; on_track: number }
+}) {
+  // Active pill uses sidebar navy (#002a7a) with white text — consistent brand identity
+  const ACTIVE_PILL = 'text-white bg-[#002a7a] border-[#002a7a] shadow-lg shadow-blue-900/25 ring-1 ring-blue-400/30'
+  const filters: { id: FilterStatus; label: string; color: string; count: number }[] = [
+    { id: 'all',      label: 'All Active',   color: 'text-gray-500 bg-white border-gray-200 hover:border-gray-300 hover:shadow-md',   count: counts.all },
+    { id: 'critical', label: 'Critical',      color: 'text-gray-500 bg-white border-gray-200 hover:border-red-200 hover:shadow-md',    count: counts.critical },
+    { id: 'at_risk',  label: 'At Risk',       color: 'text-gray-500 bg-white border-gray-200 hover:border-amber-200 hover:shadow-md',  count: counts.at_risk },
+    { id: 'on_track', label: 'On Track',      color: 'text-gray-500 bg-white border-gray-200 hover:border-emerald-200 hover:shadow-md', count: counts.on_track },
   ]
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-sm">
-      <h3 className="text-sm font-semibold text-slate-700 mb-1">Pulse Distribution</h3>
-      <p className="text-[10px] text-slate-400 mb-4">Condition-based view — active projects only</p>
-      <div className="space-y-3.5">
-        {bars.map(b => (
-          <div key={b.label}>
-            <div className="flex items-center justify-between mb-1.5">
-              <div>
-                <span className="text-xs font-semibold text-slate-700">{b.label}</span>
-                <span className="text-[10px] text-slate-400 ml-1.5">{b.desc}</span>
-              </div>
-              <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full ${b.bgChip}`}>
-                <span className={`text-xs font-bold tabular-nums ${b.textColor}`}>{b.count}</span>
-                <span className={`text-[10px] ${b.textColor} opacity-70`}>
-                  {Math.round((b.count / total) * 100)}%
-                </span>
-              </div>
-            </div>
-            <div className="h-2 rounded-full bg-slate-100 overflow-hidden">
-              <div
-                className={`h-full rounded-full ${b.color} transition-all duration-700`}
-                style={{ width: `${(b.count / total) * 100}%` }}
-              />
-            </div>
-          </div>
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-500 mb-2">Project Status</p>
+      <div className="flex flex-wrap items-center gap-2">
+        {filters.map(f => (
+          <button
+            key={f.id}
+            onClick={() => onFilter(f.id)}
+            className={`
+              flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-semibold
+              border transition-all cursor-pointer
+              ${active === f.id ? ACTIVE_PILL : f.color}
+            `}
+          >
+            {f.label}
+            <span className={`tabular-nums text-[11px] font-bold ${active === f.id ? 'text-white/80' : 'opacity-40'}`}>
+              {f.count}
+            </span>
+          </button>
         ))}
       </div>
     </div>
   )
 }
 
-// ─── ATTENTION TABLE ──────────────────────────────────────────────────────────
+// ─── PRIORITY FOCUS — TOP 5 WORST PROJECTS ───────────────────────────────────
+// When everything is red, nothing is red. This section surfaces the 5 projects
+// that are in the worst shape: lowest health, most overdue, most signal triggers.
+// This is where the executive should look FIRST.
 
-function AttentionTable({ projects, onNavigate }: { projects: Project[]; onNavigate: (id: string) => void }) {
-  // Sort: critical first, then by health_score ascending within each condition
-  const CONDITION_RANK: Record<string, number> = { critical: 0, elevated: 1, dormant: 2, watch: 3, healthy: 4 }
-  const worst = useMemo(() =>
-    [...projects]
-      .filter(p => p.status !== 'completed' && p.status !== 'cancelled')
+function PriorityFocus({ projects, onNavigate }: { projects: ProjectWithOwner[]; onNavigate: (id: string) => void }) {
+  const top5 = useMemo(() => {
+    return [...projects]
+      .filter(p => !PARKED_STATUSES.has(p.status) && (p.health_score ?? 100) < 70)
       .sort((a, b) => {
-        const rankA = CONDITION_RANK[a.pulse_condition ?? ''] ?? 5
-        const rankB = CONDITION_RANK[b.pulse_condition ?? ''] ?? 5
-        if (rankA !== rankB) return rankA - rankB
-        return (a.health_score ?? 50) - (b.health_score ?? 50)
+        // Primary: lowest health score first
+        const scoreA = a.health_score ?? 50
+        const scoreB = b.health_score ?? 50
+        if (scoreA !== scoreB) return scoreA - scoreB
+
+        // Secondary: most overdue first
+        const daysA = a.target_end ? Math.round((new Date(a.target_end).getTime() - Date.now()) / 86400000) : 0
+        const daysB = b.target_end ? Math.round((new Date(b.target_end).getTime() - Date.now()) / 86400000) : 0
+        if (daysA !== daysB) return daysA - daysB
+
+        // Tertiary: most signal triggers
+        return (b.pulse_signals?.length ?? 0) - (a.pulse_signals?.length ?? 0)
       })
-      .slice(0, 10),
-    [projects]
-  )
+      .slice(0, 5)
+  }, [projects])
 
-  if (worst.length === 0) return null
+  if (top5.length === 0) return null
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-          <ShieldWarning size={16} className="text-red-500" weight="fill" />
-          Needs Attention
-        </h3>
-        <span className="text-xs text-slate-400">By condition · critical first</span>
+    <div className="mb-6">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-5 h-5 rounded-md bg-red-50 border border-red-200 flex items-center justify-center">
+          <Target size={11} weight="fill" className="text-red-500" />
+        </div>
+        <span className="text-[12px] font-bold text-gray-800">Priority Focus</span>
+        <span className="text-[10px] text-gray-400">Top 5 projects requiring immediate attention</span>
       </div>
-      <div className="divide-y divide-slate-50">
-        {worst.map((p, i) => {
-          const pc     = pulseConditionConfig(p.pulse_condition)
-          const status = STATUS_STYLES[p.status] ?? STATUS_STYLES['active']
-          const days   = p.target_end ? Math.round((new Date(p.target_end).getTime() - Date.now()) / 86400000) : null
-          return (
-            <div
-              key={p.id}
-              onClick={() => onNavigate(p.id)}
-              className={`flex items-center gap-3 px-5 py-3 hover:bg-slate-50 cursor-pointer
-                          group transition-colors border-l-2 ${pc.border}`}
-            >
-              <span className="text-xs font-mono text-slate-300 w-5 flex-shrink-0 select-none">{i + 1}</span>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-800 truncate group-hover:text-blue-600 transition-colors">
-                  {p.name}
-                </p>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <div className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
-                  <span className={`text-[10px] ${status.text}`}>{status.label}</span>
-                  {p.vertical && <span className="text-[10px] text-slate-400">{p.vertical}</span>}
+
+      <div className="rounded-xl border border-red-200 bg-white shadow-sm ring-1 ring-red-50">
+        {/* Column header for Priority Focus — matches Critical/At Risk table columns */}
+        <div className="flex items-center gap-3 px-4 py-2.5 border-b border-red-200 bg-red-50/40 rounded-t-xl">
+          <div className="flex-1 min-w-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Project</span>
+          </div>
+          <div className="hidden md:flex w-24 flex-shrink-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Owner</span>
+          </div>
+          <div className="hidden sm:flex w-20 flex-shrink-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Status</span>
+          </div>
+          <span className="hidden lg:block flex-shrink-0 text-[11px] font-bold uppercase tracking-wider text-gray-500 w-28">Domain</span>
+          <div className="hidden xl:block w-20 flex-shrink-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Timeline</span>
+          </div>
+          <div className="hidden xl:flex w-16 flex-shrink-0">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Updated</span>
+          </div>
+          <div className="w-28 flex-shrink-0 flex justify-end">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-gray-500">Health</span>
+          </div>
+          <div className="w-3 flex-shrink-0" />
+        </div>
+
+        <div className="divide-y divide-gray-50">
+          {top5.map((p, _i) => {
+            const pc = pulseConditionCfg(p.pulse_condition)
+
+            return (
+              <button
+                key={p.id}
+                onClick={() => onNavigate(p.id)}
+                className={`
+                  w-full flex items-center gap-3 px-4 py-2.5
+                  hover:bg-red-50/50 transition-colors group text-left
+                  border-l-[3px] ${pc.leftBorder}
+                `}
+              >
+                {/* Project info */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    {p.code && <span className="text-[10px] font-mono text-gray-400 flex-shrink-0">{p.code}</span>}
+                    <span className="text-[13px] font-semibold text-gray-900 group-hover:text-blue-700 transition-colors truncate">
+                      {p.name}
+                    </span>
+                    <MomentumChip momentum={p.pulse_momentum} project={p} />
+                  </div>
                 </div>
-              </div>
-              {/* Pulse condition + momentum */}
-              <div className="flex-shrink-0">
-                <PulseBadge condition={p.pulse_condition} momentum={p.pulse_momentum} />
-              </div>
-              {/* Signal chips — the "why" */}
-              <div className="flex-shrink-0 hidden sm:block">
-                <SignalChips signals={p.pulse_signals} max={2} />
-              </div>
-              {/* Days remaining */}
-              {days !== null && (
-                <span className={`flex-shrink-0 text-[10px] tabular-nums font-medium hidden md:block ${
-                  days < 0 ? 'text-red-500' : days < 30 ? 'text-amber-600' : 'text-slate-400'
-                }`}>
-                  {days < 0 ? `${Math.abs(days)}d late` : `${days}d`}
+
+                {/* Owner */}
+                {(() => {
+                  const oName = (p as ProjectWithOwner).owner?.display_name || (p as ProjectWithOwner).owner?.full_name || null
+                  return (
+                    <div className="hidden md:flex items-center gap-1.5 w-24 flex-shrink-0">
+                      {oName ? (
+                        <>
+                          <div className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[9px] font-bold text-white ${avatarColor(oName)}`}>
+                            {ownerInitials((p as ProjectWithOwner).owner)}
+                          </div>
+                          <span className="text-[10px] text-gray-500 truncate">{oName}</span>
+                        </>
+                      ) : (
+                        <span className="text-[10px] text-gray-300">Unassigned</span>
+                      )}
+                    </div>
+                  )
+                })()}
+
+                {/* Status — matches ProjectTableRow */}
+                <div className="hidden sm:flex items-center gap-1.5 w-20 flex-shrink-0">
+                  <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${(STATUS_CFG[p.status] ?? STATUS_CFG['active']).dot}`} />
+                  <span className="text-[10px] text-gray-500">{(STATUS_CFG[p.status] ?? STATUS_CFG['active']).label}</span>
+                </div>
+
+                {/* Domain — aligned with table below */}
+                <span className="hidden lg:block flex-shrink-0 text-[10px] text-gray-400 w-28 truncate">
+                  {domainLabel(p.vertical)}
                 </span>
-              )}
-              <ArrowRight size={12} className="flex-shrink-0 text-slate-300 group-hover:text-blue-400 transition-colors" />
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
 
-// ─── DASHBOARD TAB ────────────────────────────────────────────────────────────
+                {/* Timeline mini-bar — matches ProjectTableRow */}
+                {(() => {
+                  const startDate = p.start_date ? new Date(p.start_date).getTime() : null
+                  const endDate   = p.target_end ? new Date(p.target_end).getTime() : null
+                  const pct = (startDate && endDate && endDate > startDate)
+                    ? Math.min(100, Math.max(0, ((Date.now() - startDate) / (endDate - startDate)) * 100))
+                    : null
+                  return pct !== null ? (
+                    <div className="hidden xl:block w-20 flex-shrink-0">
+                      <div className="h-1 rounded-full bg-gray-100 overflow-hidden">
+                        <div
+                          className={`h-full rounded-full ${
+                            (p.health_score ?? 50) < 40 ? 'bg-red-400' :
+                            (p.health_score ?? 50) < 70 ? 'bg-amber-400' : 'bg-emerald-400'
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+                  ) : <div className="hidden xl:block w-20 flex-shrink-0" />
+                })()}
 
-function DashboardTab({ projects, onNavigate }: { projects: Project[]; onNavigate: (id: string) => void }) {
-  return (
-    <div className="space-y-5">
-      <StatsHero />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-        <StatusDonut projects={projects} />
-        <HealthDistribution projects={projects} />
-      </div>
-      <AttentionTable projects={projects} onNavigate={onNavigate} />
-    </div>
-  )
-}
+                {/* Updated */}
+                <div className="hidden xl:flex w-16 flex-shrink-0">
+                  <span className="text-[10px] text-gray-400">{relativeTime(p.updated_at)}</span>
+                </div>
 
-// ─── HEALTH RING (light mode) ─────────────────────────────────────────────────
+                {/* Health badge with hover tooltip */}
+                <div className="w-28 flex-shrink-0 flex justify-end">
+                  <StatusPill project={p} />
+                </div>
 
-function HealthRing({ score }: { score: number | null }) {
-  if (score === null) {
-    return (
-      <div className="w-10 h-10 flex items-center justify-center">
-        <span className="text-xs text-slate-400">—</span>
-      </div>
-    )
-  }
-
-  const r    = 16
-  const circ = 2 * Math.PI * r
-  const pct  = Math.max(0, Math.min(100, score)) / 100
-  const off  = circ * (1 - pct)
-  const hc   = healthColor(score)
-
-  return (
-    <svg width="40" height="40" viewBox="0 0 40 40" className="flex-shrink-0">
-      <circle cx="20" cy="20" r={r} fill="none" stroke="#e2e8f0" strokeWidth="3.5" />
-      <circle
-        cx="20" cy="20" r={r} fill="none"
-        stroke={hc.fill} strokeWidth="3.5"
-        strokeDasharray={circ}
-        strokeDashoffset={off}
-        strokeLinecap="round"
-        transform="rotate(-90 20 20)"
-        style={{ transition: 'stroke-dashoffset 0.8s cubic-bezier(.4,0,.2,1)' }}
-      />
-      <text x="20" y="24" textAnchor="middle" fill={hc.fill} fontSize="10" fontWeight="700" fontFamily="ui-monospace,monospace">
-        {score}
-      </text>
-    </svg>
-  )
-}
-
-// ─── BUDGET CELL (light mode) ─────────────────────────────────────────────────
-
-function BudgetCell({ spent, total, inline = false }: { spent: number | null; total: number | null; inline?: boolean }) {
-  if (total === null) {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-400 border border-slate-200">
-        Not Tracked
-      </span>
-    )
-  }
-
-  const s   = spent ?? 0
-  const pct = total > 0 ? Math.min((s / total) * 100, 100) : 0
-  const over = s > total
-
-  if (inline) {
-    return (
-      <div className="min-w-[80px]">
-        <div className="flex items-center justify-between text-[10px] mb-1">
-          <span className={over ? 'text-red-600 font-semibold' : 'text-slate-700'}>
-            ${(s / 1000).toFixed(0)}k
-          </span>
-          <span className="text-slate-400">/ ${(total / 1000).toFixed(0)}k</span>
-        </div>
-        <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden">
-          <div
-            className={`h-full rounded-full ${over ? 'bg-red-500' : pct > 80 ? 'bg-amber-500' : 'bg-blue-500'}`}
-            style={{ width: `${Math.min(pct, 100)}%` }}
-          />
+                <ArrowRight size={12} className="flex-shrink-0 text-gray-200 group-hover:text-blue-400 transition-colors" />
+              </button>
+            )
+          })}
         </div>
       </div>
-    )
-  }
-
-  return (
-    <div>
-      <div className="text-xs tabular-nums mb-1">
-        <span className={over ? 'text-red-600 font-semibold' : 'text-slate-700'}>
-          ${(s / 1000).toFixed(0)}k
-        </span>
-        <span className="text-slate-400"> / ${(total / 1000).toFixed(0)}k</span>
-      </div>
-      <div className="w-20 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-        <div
-          className={`h-full rounded-full ${over ? 'bg-red-500' : pct > 80 ? 'bg-amber-500' : 'bg-blue-500'}`}
-          style={{ width: `${pct}%` }}
-        />
-      </div>
     </div>
   )
 }
 
-// ─── PROJECT CARD (light mode) ────────────────────────────────────────────────
+// ─── PROJECT TABLE ROW ───────────────────────────────────────────────────────
+// Dense line-item view for Critical / At Risk sections.
+// 3x density vs cards — see 20 projects without scrolling.
 
-function ProjectCard({ project, onClick }: { project: Project; onClick: () => void }) {
-  const status = STATUS_STYLES[project.status] ?? STATUS_STYLES['active']
-  const pc     = pulseConditionConfig(project.pulse_condition)
+function ProjectTableRow({ project, onNavigate, zebra = false }: { project: ProjectWithOwner; onNavigate: (id: string) => void; zebra?: boolean }) {
+  const pc     = pulseConditionCfg(project.pulse_condition)
+  const status = STATUS_CFG[project.status] ?? STATUS_CFG['active']
 
-  const deadline = project.target_end ? new Date(project.target_end) : null
-  const now      = new Date()
-  const daysLeft = deadline ? Math.round((deadline.getTime() - now.getTime()) / 86400000) : null
-  const overdue  = daysLeft !== null && daysLeft < 0
+  const startDate = project.start_date ? new Date(project.start_date).getTime() : null
+  const endDate   = project.target_end ? new Date(project.target_end).getTime() : null
+  const progressPct = (startDate && endDate && endDate > startDate)
+    ? Math.min(100, Math.max(0, ((Date.now() - startDate) / (endDate - startDate)) * 100))
+    : null
+
+  const ownerName = project.owner?.display_name || project.owner?.full_name || null
 
   return (
-    <div
-      onClick={onClick}
-      className={`group relative bg-white border border-slate-200 rounded-xl overflow-hidden
-                  cursor-pointer hover:border-slate-300 hover:shadow-md
-                  transition-all duration-200 hover:-translate-y-0.5 border-l-4 ${pc.border}`}
+    <button
+      onClick={() => onNavigate(project.id)}
+      className={`
+        cv-row
+        w-full flex items-center gap-3 px-4 py-2.5
+        hover:bg-blue-50/50 transition-colors group text-left
+        border-l-2 ${pc.leftBorder}
+        ${zebra ? 'bg-gray-50/60' : ''}
+      `}
     >
-      <div className="px-4 pt-4 pb-4">
-        {/* Header */}
-        <div className="flex items-start justify-between gap-2 mb-3">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 mt-0.5 ${status.dot}`} />
-            <span className={`text-[10px] font-semibold uppercase tracking-wider ${status.text}`}>
-              {status.label}
-            </span>
-          </div>
-          <span className={`flex-shrink-0 text-[10px] font-semibold uppercase tracking-wider ${
-            PRIORITY_STYLES[project.priority] ?? 'text-slate-400'
-          }`}>
-            {project.priority}
+      {/* Project name + momentum */}
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          {project.code && <span className="text-[10px] font-mono text-gray-400 flex-shrink-0">{project.code}</span>}
+          <span className="text-[13px] font-medium text-gray-900 group-hover:text-blue-700 transition-colors truncate">
+            {project.name}
           </span>
+          <MomentumChip momentum={project.pulse_momentum} project={project} />
         </div>
+      </div>
 
-        {/* Name */}
-        <h3 className="text-sm font-semibold text-slate-800 leading-snug line-clamp-2 mb-3 min-h-[2.5rem]
-                        group-hover:text-blue-700 transition-colors">
-          {project.name}
-        </h3>
-
-        {/* Vertical chip */}
-        {project.vertical && (
-          <span className="inline-flex items-center px-2 py-0.5 rounded bg-slate-100 text-[10px] text-slate-500 mb-3">
-            {project.vertical}
-          </span>
-        )}
-
-        {/* Pulse badge + health ring */}
-        <div className="flex items-center justify-between mb-2">
-          <PulseBadge condition={project.pulse_condition} momentum={project.pulse_momentum} />
-          <HealthRing score={project.health_score} />
-        </div>
-        {/* Signal chips */}
-        {project.pulse_signals && project.pulse_signals.length > 0 && (
-          <div className="mb-3">
-            <SignalChips signals={project.pulse_signals} max={3} />
-          </div>
-        )}
-
-        {/* Budget */}
-        <div className="mb-3">
-          <BudgetCell spent={project.budget_spent} total={project.budget_total} inline />
-        </div>
-
-        {/* Deadline */}
-        {deadline && (
-          <div className={`flex items-center gap-1.5 text-[11px] font-medium ${
-            overdue ? 'text-red-500' : daysLeft !== null && daysLeft < 30 ? 'text-amber-600' : 'text-slate-400'
-          }`}>
-            <CalendarBlank size={11} />
-            {overdue
-              ? `${Math.abs(daysLeft!)}d overdue`
-              : daysLeft === 0
-                ? 'Due today'
-                : daysLeft !== null && daysLeft <= 30
-                  ? `${daysLeft}d remaining`
-                  : deadline.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })
-            }
-          </div>
+      {/* Owner */}
+      <div className="hidden md:flex items-center gap-1.5 w-24 flex-shrink-0">
+        {ownerName ? (
+          <>
+            <div className={`w-5 h-5 rounded-full flex-shrink-0 flex items-center justify-center text-[9px] font-bold text-white ${avatarColor(ownerName)}`}>
+              {ownerInitials(project.owner)}
+            </div>
+            <span className="text-[10px] text-gray-500 truncate">{ownerName}</span>
+          </>
+        ) : (
+          <span className="text-[10px] text-gray-300">Unassigned</span>
         )}
       </div>
-    </div>
+
+      {/* Status */}
+      <div className="hidden sm:flex items-center gap-1.5 w-20 flex-shrink-0">
+        <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${status.dot}`} />
+        <span className="text-[10px] text-gray-500">{status.label}</span>
+      </div>
+
+      {/* Domain */}
+      <span className="hidden lg:block flex-shrink-0 text-[10px] text-gray-400 w-28 truncate">
+        {domainLabel(project.vertical)}
+      </span>
+
+      {/* Timeline mini-bar */}
+      {progressPct !== null ? (
+        <div className="hidden xl:block w-20 flex-shrink-0">
+          <div className="h-1 rounded-full bg-gray-100 overflow-hidden">
+            <div
+              className={`h-full rounded-full ${
+                (project.health_score ?? 50) < 40 ? 'bg-red-400' :
+                (project.health_score ?? 50) < 70 ? 'bg-amber-400' : 'bg-emerald-400'
+              }`}
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
+      ) : (
+        <div className="hidden xl:block w-20 flex-shrink-0" />
+      )}
+
+      {/* Updated */}
+      <div className="hidden xl:flex w-16 flex-shrink-0">
+        <span className="text-[10px] text-gray-400">{relativeTime(project.updated_at)}</span>
+      </div>
+
+      {/* Status pill with hover tooltip */}
+      <div className="w-28 flex-shrink-0 flex justify-end">
+        <StatusPill project={project} />
+      </div>
+
+      <ArrowRight size={12} className="flex-shrink-0 text-gray-200 group-hover:text-blue-400 transition-colors" />
+    </button>
   )
 }
 
-// ─── CARDS TAB ────────────────────────────────────────────────────────────────
+// ─── COMPACT CARD (for On Track section only) ────────────────────────────────
 
-function CardsTab({ projects, onNavigate }: { projects: Project[]; onNavigate: (id: string) => void }) {
-  if (projects.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-        <Briefcase size={40} weight="thin" className="mb-4 opacity-40" />
-        <p className="text-sm font-medium">No projects match your filters</p>
-      </div>
-    )
-  }
+function CompactCard({ project, onNavigate }: { project: ProjectWithOwner; onNavigate: (id: string) => void }) {
+  const pc     = pulseConditionCfg(project.pulse_condition)
+  const status = STATUS_CFG[project.status] ?? STATUS_CFG['active']
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-      {projects.map(p => (
-        <ProjectCard key={p.id} project={p} onClick={() => onNavigate(p.id)} />
-      ))}
-    </div>
-  )
-}
-
-// ─── SORT ICON ────────────────────────────────────────────────────────────────
-
-function SortIcon({ sorted }: { sorted: false | 'asc' | 'desc' }) {
-  if (!sorted) return <ArrowsDownUp size={11} className="text-slate-400" />
-  if (sorted === 'asc') return <ArrowUp size={11} className="text-blue-500" />
-  return <ArrowDown size={11} className="text-blue-500" />
-}
-
-// ─── TABLE COLUMN DEFINITIONS ─────────────────────────────────────────────────
-
-const columnHelper = createColumnHelper<Project>()
-
-const columns = [
-  columnHelper.accessor('name', {
-    header: 'Project',
-    cell: info => {
-      const p      = info.row.original
-      const status = STATUS_STYLES[p.status] ?? STATUS_STYLES['active']
-      return (
-        <div className="min-w-0">
-          <span className="font-medium text-slate-800 leading-snug line-clamp-1 block text-sm">
-            {info.getValue()}
-          </span>
+    <motion.button
+      onClick={() => onNavigate(project.id)}
+      whileHover={{ y: -1, boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}
+      transition={{ duration: 0.12 }}
+      className={`
+        cv-card-sm
+        w-full text-left rounded-xl border-l-2 border border-gray-100 bg-white shadow-sm
+        hover:border-gray-200 transition-colors cursor-pointer group
+        ${pc.leftBorder} px-3 py-2.5
+      `}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          {project.code && (
+            <span className="text-[9px] font-mono text-gray-400">{project.code}</span>
+          )}
+          <p className="text-[12px] font-semibold text-gray-900 group-hover:text-blue-700 transition-colors leading-tight truncate">
+            {project.name}
+          </p>
           <div className="flex items-center gap-1.5 mt-0.5">
             <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${status.dot}`} />
-            <span className={`text-[10px] ${status.text}`}>{status.label}</span>
-            {p.vertical && (
+            <span className="text-[10px] text-gray-500">{status.label}</span>
+            {project.owner && (
               <>
-                <span className="text-slate-300">·</span>
-                <span className="text-[10px] text-slate-400 truncate">{p.vertical}</span>
+                <span className="text-gray-200">·</span>
+                <span className="text-[10px] text-gray-400 truncate">{project.owner.display_name || project.owner.full_name}</span>
               </>
             )}
           </div>
         </div>
-      )
-    },
-    enableSorting: true,
-  }),
-  columnHelper.accessor('health_score', {
-    header: 'Health',
-    cell: info => {
-      const score = info.getValue()
-      if (score === null) return <span className="text-xs text-slate-400">—</span>
-      const hc = healthColor(score)
-      return (
-        <div className="flex items-center gap-2">
-          <div className="w-16 h-1.5 rounded-full bg-slate-100 overflow-hidden">
-            <div className={`h-full rounded-full ${hc.bar}`} style={{ width: `${score}%` }} />
-          </div>
-          <span className={`text-xs tabular-nums font-semibold ${hc.text}`}>{score}</span>
-        </div>
-      )
-    },
-    enableSorting: true,
-  }),
-  columnHelper.accessor(row => ({ condition: row.pulse_condition, momentum: row.pulse_momentum, signals: row.pulse_signals }), {
-    id: 'pulse',
-    header: 'Pulse',
-    cell: info => {
-      const { condition, momentum, signals } = info.getValue()
-      return (
-        <div className="space-y-1">
-          <PulseBadge condition={condition} momentum={momentum} />
-          <SignalChips signals={signals} max={2} />
-        </div>
-      )
-    },
-    enableSorting: false,
-  }),
-  columnHelper.accessor(row => ({ spent: row.budget_spent, total: row.budget_total }), {
-    id: 'budget',
-    header: 'Budget',
-    cell: info => {
-      const { spent, total } = info.getValue()
-      return <BudgetCell spent={spent} total={total} inline />
-    },
-    enableSorting: false,
-  }),
-  columnHelper.accessor('target_end', {
-    header: 'Due',
-    cell: info => {
-      const val = info.getValue()
-      if (!val) return <span className="text-xs text-slate-400">—</span>
-      const date   = new Date(val)
-      const days   = Math.round((date.getTime() - Date.now()) / 86400000)
-      const overdue = days < 0
-      return (
-        <div>
-          <span className={`text-xs ${overdue ? 'text-red-500 font-semibold' : 'text-slate-600'}`}>
-            {date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' })}
-          </span>
-          {overdue && <p className="text-[10px] text-red-400">{Math.abs(days)}d late</p>}
-        </div>
-      )
-    },
-    enableSorting: true,
-  }),
-  columnHelper.accessor('priority', {
-    header: 'Priority',
-    cell: info => (
-      <span className={`text-xs font-semibold capitalize ${PRIORITY_STYLES[info.getValue()] ?? 'text-slate-400'}`}>
-        {info.getValue()}
+        <HealthBadge score={project.health_score ?? null} compact />
+      </div>
+    </motion.button>
+  )
+}
+
+// ─── TABLE COLUMN HEADER ─────────────────────────────────────────────────────
+
+function TableColumnHeader() {
+  const hdr = 'text-[11px] font-bold uppercase tracking-wider text-gray-500'
+  return (
+    <div className="flex items-center gap-3 px-4 py-2.5 border-b border-gray-200 bg-gray-50 rounded-t-xl">
+      <div className="flex-1 min-w-0">
+        <span className={hdr}>Project</span>
+      </div>
+      <div className="hidden md:flex w-24 flex-shrink-0">
+        <span className={hdr}>Owner</span>
+      </div>
+      <div className="hidden sm:flex w-20 flex-shrink-0">
+        <span className={hdr}>Status</span>
+      </div>
+      <span className={`hidden lg:block flex-shrink-0 ${hdr} w-28`}>Domain</span>
+      <div className="hidden xl:block w-20 flex-shrink-0">
+        <span className={hdr}>Timeline</span>
+      </div>
+      <div className="hidden xl:flex w-16 flex-shrink-0">
+        <span className={hdr}>Updated</span>
+      </div>
+      <div className="w-28 flex-shrink-0 flex justify-end">
+        <span className={hdr}>Health</span>
+      </div>
+      <div className="w-3 flex-shrink-0" /> {/* Arrow spacer */}
+    </div>
+  )
+}
+
+// ─── ACTIVE PROJECTS GRID ────────────────────────────────────────────────────
+// Critical & At Risk: dense table rows. On Track: compact cards.
+
+function ActiveProjectsView({ projects, onNavigate, statusFilter }: {
+  projects: ProjectWithOwner[]; onNavigate: (id: string) => void; statusFilter: FilterStatus
+}) {
+  const active = useMemo(() =>
+    [...projects].filter(p => !PARKED_STATUSES.has(p.status)),
+    [projects]
+  )
+
+  const sortFn = (a: Project, b: Project) => {
+    const rA = CONDITION_RANK[a.pulse_condition ?? ''] ?? 5
+    const rB = CONDITION_RANK[b.pulse_condition ?? ''] ?? 5
+    if (rA !== rB) return rA - rB
+    return (a.health_score ?? 50) - (b.health_score ?? 50)
+  }
+
+  // Section groupings use health_score thresholds — same as KPI tiles and sidebar.
+  // This ensures the count on the filter pill matches the rows you see in each section.
+  const critical = active.filter(p => (p.health_score ?? 50) < 40).sort(sortFn)
+  const watch    = active.filter(p => { const h = p.health_score ?? 50; return h >= 40 && h < 70 }).sort(sortFn)
+  const healthy  = active.filter(p => (p.health_score ?? 50) >= 70).sort(sortFn)
+
+  const showCritical = statusFilter === 'all' || statusFilter === 'critical'
+  const showWatch    = statusFilter === 'all' || statusFilter === 'at_risk'
+  const showHealthy  = statusFilter === 'all' || statusFilter === 'on_track'
+
+  const SECTION_DESCRIPTIONS: Record<string, string> = {
+    'Critical':  'Projects requiring immediate executive intervention',
+    'At Risk':   'Projects showing warning signals — monitor closely',
+    'On Track':  'Projects progressing within acceptable parameters',
+  }
+
+  const SectionHeader = ({ color, icon, label, count }: { color: string; icon: React.ReactNode; label: string; count: number }) => (
+    <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2">
+        <span className={`text-[12px] font-bold ${color} flex items-center gap-1.5`}>
+          {icon} {label}
+        </span>
+        <span className="text-[10px] text-gray-300 bg-gray-50 rounded-full px-2 py-0.5 border border-gray-100 tabular-nums">
+          {count}
+        </span>
+      </div>
+      <span className="text-[10px] text-gray-400 hidden sm:inline">
+        {SECTION_DESCRIPTIONS[label] ?? ''}
       </span>
-    ),
-    enableSorting: true,
-  }),
-]
+      <div className="flex-1 h-px bg-gray-100" />
+    </div>
+  )
 
-// ─── STATUS FILTER OPTIONS ────────────────────────────────────────────────────
+  return (
+    <div className="space-y-6">
+      {/* Critical — dense table rows with column headers */}
+      {showCritical && critical.length > 0 && (
+        <section>
+          <SectionHeader color="text-red-500" icon={<ShieldWarning size={12} weight="fill" />} label="Critical" count={critical.length} />
+          <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
+            <TableColumnHeader />
+            <div className="divide-y divide-gray-50">
+              {critical.map((p, i) => <ProjectTableRow key={p.id} project={p} onNavigate={onNavigate} zebra={i % 2 === 1} />)}
+            </div>
+          </div>
+        </section>
+      )}
 
-const STATUS_FILTER_OPTIONS: Array<{ value: ProjectStatus | 'all'; label: string }> = [
-  { value: 'all',       label: 'All' },
-  { value: 'active',    label: 'Active' },
-  { value: 'planning',  label: 'Planning' },
-  { value: 'on_hold',   label: 'On Hold' },
-  { value: 'completed', label: 'Completed' },
-  { value: 'at_risk',   label: 'At Risk' },
-  { value: 'critical',  label: 'Critical' },
-]
+      {/* At Risk — dense table rows with column headers */}
+      {showWatch && watch.length > 0 && (
+        <section>
+          <SectionHeader color="text-amber-600" icon={<Warning size={12} weight="fill" />} label="At Risk" count={watch.length} />
+          <div className="rounded-xl border border-gray-100 bg-white shadow-sm">
+            <TableColumnHeader />
+            <div className="divide-y divide-gray-50">
+              {watch.map((p, i) => <ProjectTableRow key={p.id} project={p} onNavigate={onNavigate} zebra={i % 2 === 1} />)}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* On Track — compact cards (these don't need attention, less density is fine) */}
+      {showHealthy && healthy.length > 0 && (
+        <section>
+          <SectionHeader color="text-emerald-600" icon={<CheckCircle size={12} weight="fill" />} label="On Track" count={healthy.length} />
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-2.5">
+            {healthy.map(p => <CompactCard key={p.id} project={p} onNavigate={onNavigate} />)}
+          </div>
+        </section>
+      )}
+
+      {active.length === 0 && (
+        <div className="flex items-center justify-center py-20">
+          <div className="text-center space-y-2">
+            <Briefcase size={32} className="text-gray-200 mx-auto" />
+            <p className="text-sm text-gray-400">No active projects match this filter</p>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── PARKED PROJECTS (On Hold / Planning / Completed) ────────────────────────
+
+function ParkedProjects({ projects, onNavigate }: { projects: ProjectWithOwner[]; onNavigate: (id: string) => void }) {
+  const [expanded, setExpanded] = useState(false)
+
+  const parked = useMemo(() =>
+    projects.filter(p => PARKED_STATUSES.has(p.status)).sort((a, b) => a.name.localeCompare(b.name)),
+    [projects]
+  )
+
+  if (parked.length === 0) return null
+
+  /* Group parked projects by status — reserved for status sub-sections in Sprint 1B
+  const byStatus = useMemo(() => {
+    const map: Record<string, ProjectWithOwner[]> = {}
+    for (const p of parked) (map[p.status] ??= []).push(p)
+    return map
+  }, [parked])
+  */
+
+  return (
+    <section className="mt-8">
+      <button
+        onClick={() => setExpanded(!expanded)}
+        className="flex items-center gap-2 mb-3 cursor-pointer group"
+      >
+        {expanded
+          ? <CaretDown size={12} className="text-gray-400" />
+          : <CaretRight size={12} className="text-gray-400" />
+        }
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 group-hover:text-gray-600 transition-colors">
+          Parked Projects
+        </span>
+        <span className="text-[10px] text-gray-300 bg-gray-50 rounded-full px-2 py-0.5 border border-gray-100">
+          {parked.length}
+        </span>
+        <div className="flex-1 h-px bg-gray-100" />
+      </button>
+
+      <AnimatePresence>
+        {expanded && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
+            className="overflow-hidden"
+          >
+            <div className="rounded-xl border border-gray-100 bg-white shadow-sm divide-y divide-gray-50">
+              {parked.map(p => {
+                const status = STATUS_CFG[p.status] ?? STATUS_CFG['on_hold']
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => onNavigate(p.id)}
+                    className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors group text-left"
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        {p.code && <span className="text-[10px] font-mono text-gray-300">{p.code}</span>}
+                        <span className="text-[12px] font-medium text-gray-600 group-hover:text-blue-600 transition-colors truncate">
+                          {p.name}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 w-20 flex-shrink-0">
+                      <div className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${status.dot}`} />
+                      <span className="text-[10px] text-gray-400">{status.label}</span>
+                    </div>
+                    {p.vertical && <span className="text-[10px] text-gray-300 w-28 truncate hidden lg:block">{domainLabel(p.vertical)}</span>}
+                    <ArrowRight size={12} className="flex-shrink-0 text-gray-200 group-hover:text-blue-400 transition-colors" />
+                  </button>
+                )
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </section>
+  )
+}
+
+// ─── COMMAND CENTER TAB ───────────────────────────────────────────────────────
+
+function CommandCenterTab({ projects, onNavigate }: { projects: ProjectWithOwner[]; onNavigate: (id: string) => void }) {
+  const [filter, setFilter] = useState<FilterStatus>('all')
+  const [selectedVerticals, setSelectedVerticals] = useState<Set<string>>(new Set())
+
+  const toggleVertical = useCallback((v: string) => {
+    setSelectedVerticals(prev => {
+      const next = new Set(prev)
+      if (next.has(v)) next.delete(v)
+      else next.add(v)
+      return next
+    })
+  }, [])
+
+  const active = useMemo(() =>
+    projects.filter(p => !PARKED_STATUSES.has(p.status)),
+    [projects]
+  )
+
+  const verticals = useMemo(() =>
+    [...new Set(active.map(p => p.vertical).filter(Boolean))].sort() as string[],
+    [active]
+  )
+
+  // Apply domain filter
+  const filtered = useMemo(() => {
+    if (selectedVerticals.size === 0) return projects
+    return projects.filter(p => selectedVerticals.has(p.vertical ?? ''))
+  }, [projects, selectedVerticals])
+
+  const filteredActive = useMemo(() =>
+    filtered.filter(p => !PARKED_STATUSES.has(p.status)),
+    [filtered]
+  )
+
+  // Filter pill counts use health_score thresholds — same as KPI tiles and sidebar.
+  const counts = useMemo(() => ({
+    all:      filteredActive.length,
+    critical: filteredActive.filter(p => (p.health_score ?? 50) < 40).length,
+    at_risk:  filteredActive.filter(p => { const h = p.health_score ?? 50; return h >= 40 && h < 70 }).length,
+    on_track: filteredActive.filter(p => (p.health_score ?? 50) >= 70).length,
+  }), [filteredActive])
+
+  // Compute KPI counts from health_score thresholds (not pulse_condition) so the
+  // summary tiles match the sidebar Portfolio Health widget. pulse_condition drives
+  // section groupings; health_score drives the executive-level RAG summary.
+  const activeCounts = useMemo(() => {
+    const scores = filteredActive.map(p => p.health_score ?? 50)
+    const avg = scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : 0
+    return {
+      onTrack:  filteredActive.filter(p => (p.health_score ?? 50) >= 70).length,
+      atRisk:   filteredActive.filter(p => { const h = p.health_score ?? 50; return h >= 40 && h < 70 }).length,
+      critical: filteredActive.filter(p => (p.health_score ?? 50) < 40).length,
+      avgHealth: avg,
+    }
+  }, [filteredActive])
+
+  return (
+    <div>
+      <KPIStrip activeCount={filteredActive.length} activeCounts={activeCounts} />
+
+      {/* Filters row */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-5">
+        <FilterBar active={filter} onFilter={setFilter} counts={counts} />
+        <div className="sm:ml-auto">
+          <DomainPills verticals={verticals} selected={selectedVerticals} onToggle={toggleVertical} />
+        </div>
+      </div>
+
+      {/* Priority Focus — top 5 worst */}
+      {filter === 'all' && <PriorityFocus projects={filtered} onNavigate={onNavigate} />}
+
+      {/* Active projects by status zone */}
+      <ActiveProjectsView projects={filtered} onNavigate={onNavigate} statusFilter={filter} />
+
+      {/* Parked projects — collapsible */}
+      {filter === 'all' && <ParkedProjects projects={filtered} onNavigate={onNavigate} />}
+    </div>
+  )
+}
 
 // ─── LIST TAB ─────────────────────────────────────────────────────────────────
 
-function ListTab({ projects, isLoading, onNavigate, onRefresh }: {
-  projects: Project[]
-  isLoading: boolean
-  onNavigate: (id: string) => void
-  onRefresh: () => void
-}) {
-  const [sorting, setSorting] = useState<SortingState>([
-    { id: 'health_score', desc: false },
-  ])
-  const [globalFilter, setGlobalFilter] = useState('')
+type SortField = 'name' | 'health_score' | 'status' | 'pulse_condition'
+type SortDir   = 'asc' | 'desc'
 
-  const table = useReactTable({
-    data: projects,
-    columns,
-    state: { sorting, globalFilter },
-    onSortingChange: setSorting,
-    onGlobalFilterChange: setGlobalFilter,
-    getCoreRowModel: getCoreRowModel(),
-    getSortedRowModel: getSortedRowModel(),
-    getFilteredRowModel: getFilteredRowModel(),
-  })
+function ListTab({ projects, onNavigate }: { projects: ProjectWithOwner[]; onNavigate: (id: string) => void }) {
+  const [sortField, setSortField] = useState<SortField>('health_score')
+  const [sortDir, setSortDir]     = useState<SortDir>('asc')
+  const [search, setSearch]       = useState('')
+
+  const sorted = useMemo(() => {
+    const filtered = projects.filter(p =>
+      !search || p.name.toLowerCase().includes(search.toLowerCase()) ||
+      (p.code ?? '').toLowerCase().includes(search.toLowerCase())
+    )
+    return [...filtered].sort((a, b) => {
+      let cmp = 0
+      if (sortField === 'name')            cmp = a.name.localeCompare(b.name)
+      if (sortField === 'health_score')    cmp = (a.health_score ?? 50) - (b.health_score ?? 50)
+      if (sortField === 'status')          cmp = a.status.localeCompare(b.status)
+      if (sortField === 'pulse_condition') cmp = (CONDITION_RANK[a.pulse_condition ?? ''] ?? 5) - (CONDITION_RANK[b.pulse_condition ?? ''] ?? 5)
+      return sortDir === 'asc' ? cmp : -cmp
+    })
+  }, [projects, sortField, sortDir, search])
+
+  const toggle = (field: SortField) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortField(field); setSortDir('asc') }
+  }
+
+  const SortBtn = ({ field, label }: { field: SortField; label: string }) => (
+    <button onClick={() => toggle(field)}
+      className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-widest text-gray-400 hover:text-gray-600 transition-colors cursor-pointer">
+      {label}
+      {sortField === field
+        ? sortDir === 'asc' ? <ArrowUp size={10} className="text-blue-500" /> : <ArrowDown size={10} className="text-blue-500" />
+        : <ArrowsDownUp size={10} className="text-gray-300" />}
+    </button>
+  )
 
   return (
-    <div className="space-y-4">
-      {/* Filter bar */}
-      <div className="flex items-center gap-3 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input
-            type="text"
-            placeholder="Search projects…"
-            value={globalFilter}
-            onChange={e => setGlobalFilter(e.target.value)}
-            className="w-full pl-8 pr-3 py-2 text-sm bg-white border border-slate-300 rounded-lg
-                       text-slate-800 placeholder-slate-400 outline-none
-                       focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-          />
+    <div>
+      <input
+        value={search} onChange={e => setSearch(e.target.value)}
+        placeholder="Search projects..."
+        className="mb-4 w-full sm:w-72 bg-white border border-gray-200 rounded-lg
+                   px-3 py-2 text-sm text-gray-700 placeholder:text-gray-300
+                   focus:outline-none focus:border-blue-300 focus:ring-2 focus:ring-blue-100"
+      />
+      <div className="rounded-xl border border-gray-100 bg-white shadow-sm overflow-hidden">
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 bg-gray-50/50">
+          <div className="flex-1"><SortBtn field="name" label="Project" /></div>
+          <div className="w-24 hidden sm:block"><SortBtn field="pulse_condition" label="Condition" /></div>
+          <div className="w-24"><SortBtn field="health_score" label="Health" /></div>
+          <div className="w-28 hidden md:block text-[10px] font-semibold uppercase tracking-widest text-gray-400">Signals</div>
         </div>
-        <div className="text-xs text-slate-400 ml-auto tabular-nums">
-          {table.getFilteredRowModel().rows.length} of {projects.length} projects
-        </div>
-        <button
-          onClick={onRefresh}
-          className="p-2 rounded-lg border border-slate-200 bg-white text-slate-400 hover:text-slate-600
-                     hover:border-slate-300 transition-colors"
-          title="Refresh"
-        >
-          <ArrowClockwise size={14} className={isLoading ? 'animate-spin' : ''} />
-        </button>
-      </div>
-
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead>
-              {table.getHeaderGroups().map(hg => (
-                <tr key={hg.id} className="border-b border-slate-100">
-                  {hg.headers.map(header => (
-                    <th
-                      key={header.id}
-                      onClick={header.column.getToggleSortingHandler()}
-                      className={`px-4 py-3 text-left text-[10px] font-semibold text-slate-500
-                                  uppercase tracking-wider select-none whitespace-nowrap
-                                  ${header.column.getCanSort() ? 'cursor-pointer hover:text-slate-700' : ''}`}
-                    >
-                      <div className="flex items-center gap-1.5">
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                        {header.column.getCanSort() && (
-                          <SortIcon sorted={header.column.getIsSorted()} />
-                        )}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              ))}
-            </thead>
-            <tbody className="divide-y divide-slate-50">
-              {table.getRowModel().rows.length === 0 ? (
-                <tr>
-                  <td colSpan={columns.length} className="px-4 py-16 text-center text-sm text-slate-400">
-                    No projects match your search
-                  </td>
-                </tr>
-              ) : (
-                table.getRowModel().rows.map(row => {
-                  const hc = healthColor(row.original.health_score)
-                  return (
-                    <tr
-                      key={row.id}
-                      onClick={() => onNavigate(row.original.id)}
-                      className={`cursor-pointer hover:bg-slate-50 transition-colors border-l-2 ${hc.border} group`}
-                    >
-                      {row.getVisibleCells().map(cell => (
-                        <td key={cell.id} className="px-4 py-3">
-                          {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                        </td>
-                      ))}
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
+        <div className="divide-y divide-gray-50">
+          {sorted.map(p => {
+            const pc     = pulseConditionCfg(p.pulse_condition)
+            const status = STATUS_CFG[p.status] ?? STATUS_CFG['active']
+            return (
+              <button key={p.id} onClick={() => onNavigate(p.id)}
+                className={`w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors group text-left border-l-2 ${pc.leftBorder}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    {p.code && <span className="text-[10px] font-mono text-gray-400">{p.code}</span>}
+                    <span className="text-sm font-medium text-gray-900 group-hover:text-blue-600 transition-colors truncate">{p.name}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    <div className={`w-1.5 h-1.5 rounded-full ${status.dot}`} />
+                    <span className="text-[10px] text-gray-500">{status.label}</span>
+                    {p.vertical && <span className="text-[10px] text-gray-400">{domainLabel(p.vertical)}</span>}
+                  </div>
+                </div>
+                <div className="hidden sm:block w-24 flex-shrink-0">
+                  <span className={`text-[10px] font-semibold ${pc.textColor}`}>{pc.label}</span>
+                </div>
+                <div className="w-24 flex-shrink-0"><HealthBadge score={p.health_score ?? null} compact /></div>
+                <div className="w-28 hidden md:block flex-shrink-0"><SignalText signals={p.pulse_signals} max={2} /></div>
+                <ArrowRight size={12} className="flex-shrink-0 text-gray-200 group-hover:text-blue-400 transition-colors" />
+              </button>
+            )
+          })}
         </div>
       </div>
     </div>
   )
 }
 
-// ─── ROADMAP / GANTT TAB ──────────────────────────────────────────────────────
+// ─── ROADMAP TAB ──────────────────────────────────────────────────────────────
 
-function RoadmapTab({ projects, onNavigate }: { projects: Project[]; onNavigate: (id: string) => void }) {
-  // Only projects with start_date AND target_end
-  const roadmapProjects = useMemo(() =>
-    projects.filter(p => p.start_date && p.target_end),
-    [projects]
+function RoadmapTab({ projects }: { projects: ProjectWithOwner[] }) {
+  const VERTICAL_COLORS: Record<string, string> = {
+    'Transportation': '#3b82f6', 'Warehouse': '#8b5cf6', 'W&D': '#8b5cf6',
+    'Infrastructure': '#f59e0b', 'Security': '#ef4444', 'Data & Analytics': '#06b6d4', 'ERP': '#10b981',
+  }
+
+  const now   = Date.now()
+  const valid = projects
+    .filter(p => p.start_date && p.target_end && p.status !== 'cancelled')
+    .sort((a, b) => new Date(a.start_date!).getTime() - new Date(b.start_date!).getTime())
+
+  if (valid.length === 0) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="text-center">
+        <MapTrifold size={32} className="text-gray-200 mx-auto mb-2" />
+        <p className="text-sm text-gray-400">No projects with date ranges</p>
+      </div>
+    </div>
   )
 
-  // Compute date range
-  const { rangeStart, rangeEnd, totalDays } = useMemo(() => {
-    if (roadmapProjects.length === 0) {
-      const now = new Date()
-      return { rangeStart: now, rangeEnd: new Date(now.getTime() + 180 * 86400000), totalDays: 180 }
-    }
-    const starts = roadmapProjects.map(p => new Date(p.start_date!).getTime())
-    const ends   = roadmapProjects.map(p => new Date(p.target_end!).getTime())
-    const minMs  = Math.min(...starts) - 14 * 86400000   // 2 week pad
-    const maxMs  = Math.max(...ends)   + 14 * 86400000
-    const rs     = new Date(minMs)
-    const re     = new Date(maxMs)
-    const days   = Math.ceil((maxMs - minMs) / 86400000)
-    return { rangeStart: rs, rangeEnd: re, totalDays: days }
-  }, [roadmapProjects])
+  const earliest = Math.min(...valid.map(p => new Date(p.start_date!).getTime()))
+  const latest   = Math.max(...valid.map(p => new Date(p.target_end!).getTime()))
+  const totalMs  = latest - earliest || 1
+  const toX = (d: Date | string) => ((new Date(d).getTime() - earliest) / totalMs) * 100
+  const nowX = ((now - earliest) / totalMs) * 100
 
-  // Group by vertical
-  const grouped = useMemo(() => {
-    const map = new Map<string, Project[]>()
-    for (const p of roadmapProjects) {
-      const key = p.vertical ?? 'Other'
-      if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(p)
-    }
-    // Sort each group by start_date
-    for (const [, arr] of map) {
-      arr.sort((a, b) => new Date(a.start_date!).getTime() - new Date(b.start_date!).getTime())
-    }
-    return map
-  }, [roadmapProjects])
-
-  // Today's position
-  const todayPct = useMemo(() => {
-    const now   = Date.now()
-    const start = rangeStart.getTime()
-    const end   = rangeEnd.getTime()
-    return Math.max(0, Math.min(100, ((now - start) / (end - start)) * 100))
-  }, [rangeStart, rangeEnd])
-
-  // Month labels
-  const monthLabels = useMemo(() => {
-    const labels: { label: string; pct: number }[] = []
-    const cur = new Date(rangeStart.getFullYear(), rangeStart.getMonth(), 1)
-    while (cur <= rangeEnd) {
-      const pct = ((cur.getTime() - rangeStart.getTime()) / (rangeEnd.getTime() - rangeStart.getTime())) * 100
-      labels.push({
-        label: cur.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
-        pct,
-      })
-      cur.setMonth(cur.getMonth() + 1)
-    }
-    return labels
-  }, [rangeStart, rangeEnd])
-
-  function barPct(dateStr: string) {
-    const ts = new Date(dateStr).getTime()
-    return ((ts - rangeStart.getTime()) / (rangeEnd.getTime() - rangeStart.getTime())) * 100
-  }
-
-  if (roadmapProjects.length === 0) {
-    return (
-      <div className="flex flex-col items-center justify-center py-24 text-slate-400">
-        <MapTrifold size={40} weight="thin" className="mb-4 opacity-40" />
-        <p className="text-sm font-medium">No projects with timeline data</p>
-        <p className="text-xs mt-1">Projects need start_date and target_end to appear here</p>
-      </div>
-    )
-  }
-
-  const MIN_CHART_WIDTH = Math.max(900, totalDays * 3)
+  const byVertical = useMemo(() => {
+    const map: Record<string, typeof valid> = {}
+    for (const p of valid) (map[p.vertical ?? 'Other'] ??= []).push(p)
+    return Object.entries(map).sort(([a], [b]) => a.localeCompare(b))
+  }, [valid])
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
-          <MapTrifold size={16} className="text-blue-500" weight="fill" />
-          Portfolio Roadmap
-        </h3>
-        <div className="flex items-center gap-4 text-[10px] text-slate-400">
-          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-sm bg-emerald-400" /> On Track
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-sm bg-amber-400" /> At Risk
-          </div>
-          <div className="flex items-center gap-1.5">
-            <div className="w-2.5 h-2.5 rounded-sm bg-red-400" /> Critical
-          </div>
-          <div className="flex items-center gap-1.5">
-            <span className="text-blue-500 font-bold">◆</span> Go-live
-          </div>
+    <div className="rounded-xl border border-gray-100 bg-white shadow-sm p-5 overflow-x-auto">
+      <div className="min-w-[600px]">
+        <div className="ml-44 mb-3 relative h-5">
+          {[0, 25, 50, 75, 100].map(pct => (
+            <span key={pct} className="absolute text-[10px] text-gray-300 -translate-x-1/2" style={{ left: `${pct}%` }}>
+              {new Date(earliest + (pct / 100) * totalMs).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })}
+            </span>
+          ))}
         </div>
-      </div>
-
-      <div className="overflow-x-auto">
-        <div style={{ minWidth: `${MIN_CHART_WIDTH + 160}px` }}>
-          {/* Month header */}
-          <div className="flex" style={{ paddingLeft: '160px' }}>
-            <div className="relative flex-1 h-8 border-b border-slate-100 bg-slate-50">
-              {monthLabels.map((m, i) => (
-                <div
-                  key={i}
-                  className="absolute top-0 h-full flex items-center"
-                  style={{ left: `${m.pct}%` }}
-                >
-                  <div className="h-full border-l border-slate-200" />
-                  <span className="text-[10px] text-slate-400 font-medium pl-1.5 whitespace-nowrap">
-                    {m.label}
-                  </span>
-                </div>
-              ))}
+        <div className="relative space-y-1">
+          {nowX >= 0 && nowX <= 100 && (
+            <div className="absolute top-0 bottom-0 pointer-events-none z-10"
+              style={{ left: `calc(176px + ${nowX}% * ((100% - 176px) / 100))` }}>
+              <div className="h-full w-px bg-blue-400/60" />
+              <div className="absolute -top-1 -translate-x-1/2 bg-blue-500 text-white text-[8px] px-1.5 py-0.5 rounded font-semibold">Today</div>
             </div>
-          </div>
-
-          {/* Groups */}
-          {Array.from(grouped.entries()).map(([vertical, vProjects]) => (
+          )}
+          {byVertical.map(([vertical, vProjects]) => (
             <div key={vertical}>
-              {/* Group header */}
-              <div className="flex items-center border-b border-slate-100 bg-slate-50 sticky left-0">
-                <div className="w-40 flex-shrink-0 px-4 py-2">
-                  <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">
-                    {vertical}
-                  </span>
-                  <span className="text-[10px] text-slate-400 ml-2">({vProjects.length})</span>
-                </div>
-                <div className="flex-1 relative h-6">
-                  {/* Today line through header */}
-                  <div
-                    className="absolute top-0 bottom-0 w-px bg-blue-400/30"
-                    style={{ left: `${todayPct}%` }}
-                  />
-                </div>
+              <div className="flex items-center gap-2 py-2">
+                <div className="w-2.5 h-2.5 rounded-sm" style={{ background: VERTICAL_COLORS[vertical] ?? '#9ca3af' }} />
+                <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">{domainLabel(vertical)}</span>
               </div>
-
-              {/* Project rows */}
               {vProjects.map(p => {
-                const hc    = healthColor(p.health_score)
-                const left  = barPct(p.start_date!)
-                const right = barPct(p.target_end!)
-                const width = Math.max(right - left, 0.5)
-                const days  = Math.round((new Date(p.target_end!).getTime() - Date.now()) / 86400000)
-                const overdue = days < 0
-
+                const sx = toX(p.start_date!), ex = toX(p.target_end!)
+                const late = p.target_end && new Date(p.target_end) < new Date() && p.status !== 'completed'
                 return (
-                  <div
-                    key={p.id}
-                    className="flex items-center border-b border-slate-50 hover:bg-slate-50/60 group cursor-pointer"
-                    onClick={() => onNavigate(p.id)}
-                  >
-                    {/* Label */}
-                    <div className="w-40 flex-shrink-0 px-4 py-2.5">
-                      <p className="text-xs font-medium text-slate-700 truncate group-hover:text-blue-600 transition-colors">
-                        {p.name}
-                      </p>
-                      <p className={`text-[10px] ${hc.text} font-semibold`}>
-                        {healthLabel(p.health_score)}
-                        {p.health_score !== null && ` · ${p.health_score}`}
-                      </p>
+                  <div key={p.id} className="scroll-reveal-up flex items-center mb-1 min-h-[28px]">
+                    <div className="w-44 flex-shrink-0 pr-3">
+                      <div className="flex items-center gap-1">
+                        {p.code && <span className="text-[9px] font-mono text-gray-300">{p.code}</span>}
+                        <span className="text-[11px] text-gray-600 truncate">{p.name}</span>
+                      </div>
                     </div>
-
-                    {/* Gantt track */}
-                    <div className="flex-1 relative h-12 py-3.5">
-                      {/* Today line */}
-                      <div
-                        className="absolute top-0 bottom-0 w-px bg-blue-400 z-10"
-                        style={{ left: `${todayPct}%` }}
-                      />
-                      {/* Month grid lines */}
-                      {monthLabels.map((m, i) => (
-                        <div
-                          key={i}
-                          className="absolute top-0 bottom-0 w-px bg-slate-100"
-                          style={{ left: `${m.pct}%` }}
-                        />
-                      ))}
-
-                      {/* Gantt bar */}
-                      <div
-                        className={`absolute top-3 h-5 rounded ${
-                          hc.bar
-                        } opacity-80 group-hover:opacity-100 transition-opacity`}
-                        style={{
-                          left:  `${Math.max(0, left)}%`,
-                          width: `${Math.min(width, 100 - Math.max(0, left))}%`,
-                        }}
-                        title={`${p.name}: ${p.start_date} → ${p.target_end}`}
-                      />
-
-                      {/* Go-live diamond at target_end */}
-                      <div
-                        className={`absolute top-2.5 z-20 w-3.5 h-3.5 rotate-45 border-2 ${
-                          overdue
-                            ? 'bg-red-500 border-red-600'
-                            : 'bg-blue-500 border-blue-600'
-                        } shadow-sm`}
-                        style={{
-                          left: `calc(${Math.min(right, 99.5)}% - 7px)`,
-                        }}
-                        title={`Go-live: ${p.target_end}${overdue ? ` (${Math.abs(days)}d late)` : ''}`}
-                      />
+                    <div className="flex-1 relative h-6 rounded overflow-hidden bg-gray-50">
+                      <div className="absolute top-1.5 bottom-1.5 rounded-sm"
+                        style={{ left: `${sx}%`, width: `${Math.max(ex - sx, 0.5)}%`,
+                          background: late ? '#fca5a5' : (VERTICAL_COLORS[vertical] ?? '#9ca3af'), opacity: 0.6 }} />
+                      <div className="absolute top-1/2 -translate-y-1/2 w-2.5 h-2.5 rotate-45"
+                        style={{ left: `calc(${ex}% - 5px)`,
+                          background: late ? '#ef4444' : (VERTICAL_COLORS[vertical] ?? '#9ca3af'), opacity: 0.8 }}
+                        title={`Target: ${new Date(p.target_end!).toLocaleDateString()}`} />
+                    </div>
+                    <div className="w-20 flex-shrink-0 flex justify-end ml-2">
+                      <HealthBadge score={p.health_score ?? null} compact />
                     </div>
                   </div>
                 )
               })}
             </div>
           ))}
-
-          {/* Today label at bottom */}
-          <div className="flex" style={{ paddingLeft: '160px' }}>
-            <div className="flex-1 relative h-6 bg-slate-50 border-t border-slate-100">
-              <div
-                className="absolute top-0 h-full flex flex-col items-center"
-                style={{ left: `${todayPct}%` }}
-              >
-                <div className="w-px h-full bg-blue-400" />
-              </div>
-              <div
-                className="absolute top-1 px-1.5 py-0.5 bg-blue-500 rounded text-[9px] text-white font-semibold whitespace-nowrap -translate-x-1/2"
-                style={{ left: `${todayPct}%` }}
-              >
-                Today
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
   )
 }
 
-// ─── MAIN PORTFOLIO COMPONENT ─────────────────────────────────────────────────
-
-const TABS: Array<{ id: TabId; label: string; icon: React.ReactNode }> = [
-  { id: 'dashboard', label: 'Dashboard', icon: <ChartBar size={15} weight="fill" /> },
-  { id: 'list',      label: 'List',      icon: <Rows size={15} weight="fill" /> },
-  { id: 'cards',     label: 'Cards',     icon: <SquaresFour size={15} weight="fill" /> },
-  { id: 'roadmap',   label: 'Roadmap',   icon: <MapTrifold size={15} weight="fill" /> },
-]
-
-const STATUS_FILTER_OPTIONS_WITH_ALL = STATUS_FILTER_OPTIONS
+// ─── PORTFOLIO ────────────────────────────────────────────────────────────────
 
 export default function Portfolio() {
-  const navigate = useNavigate()
+  const navigate  = useNavigate()
+  const [tab, setTab] = useState<TabId>('command')
+  const { data: stats } = usePortfolioStats()
 
-  const [activeTab,   setActiveTab]   = useState<TabId>('dashboard')
-  const [statusFilter, setStatusFilter] = useState<ProjectStatus | 'all'>('all')
-  const [searchQuery,  setSearchQuery]  = useState('')
-
-  const { data: projects = [], isLoading, refetch } = useProjects({
-    status:   statusFilter !== 'all' ? statusFilter : undefined,
-    search:   searchQuery || undefined,
-    pageSize: 200,
-  })
+  const { data: rawProjects = [], isLoading } = useProjects({ pageSize: 500 })
+  const projects = rawProjects as ProjectWithOwner[]
 
   const onNavigate = (id: string) => navigate(`/project/${id}`)
 
+  // Ambient aura
+  const aura = !stats ? '' :
+    stats.avgHealthScore >= 65 ? '' :
+    stats.avgHealthScore >= 40 ? 'aura-warning' :
+    'aura-critical'
+
+  const TABS = [
+    { id: 'command'  as TabId, label: 'Command Center', icon: <Lightning size={12} weight="fill" />  },
+    { id: 'list'     as TabId, label: 'Projects',       icon: <Rows size={12} />      },
+    { id: 'roadmap'  as TabId, label: 'Roadmap',        icon: <MapTrifold size={12} /> },
+  ]
+
   return (
-    <div className="min-h-screen bg-slate-50">
-      {/* Page header */}
-      <div className="bg-white border-b border-slate-200 px-6 py-4">
-        <div className="flex items-start justify-between gap-4 mb-5">
+    <div className={`min-h-screen bg-[#f4f6f9] ${aura}`}>
+      <div className="max-w-[1400px] mx-auto px-6 py-6">
+
+        {/* Page Header */}
+        <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Portfolio</h1>
-            <p className="text-sm text-slate-500 mt-0.5">
-              {isLoading ? 'Loading…' : `${projects.length} projects · Global IT`}
+            <h1 className="text-lg font-bold text-gray-900 tracking-tight">Portfolio Intelligence</h1>
+            <p className="text-[11px] text-gray-400 mt-0.5">
+              Global IT · {projects.length} projects tracked
             </p>
           </div>
-
-          {/* Filter controls */}
-          <div className="flex items-center gap-2 flex-wrap justify-end">
-            {/* Status filter */}
-            <select
-              value={statusFilter}
-              onChange={e => setStatusFilter(e.target.value as ProjectStatus | 'all')}
-              className="text-sm bg-white border border-slate-300 rounded-lg px-3 py-2 text-slate-700
-                         outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 cursor-pointer"
-            >
-              {STATUS_FILTER_OPTIONS_WITH_ALL.map(o => (
-                <option key={o.value} value={o.value}>{o.label}</option>
-              ))}
-            </select>
-
-            {/* Search (visible on List/Cards/Roadmap tabs) */}
-            {activeTab !== 'dashboard' && (
-              <div className="relative">
-                <MagnifyingGlass size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search…"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                  className="pl-8 pr-3 py-2 text-sm bg-white border border-slate-300 rounded-lg
-                             text-slate-800 placeholder-slate-400 outline-none w-48
-                             focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 transition-all"
-                />
-              </div>
-            )}
-
-            <button
-              onClick={() => refetch()}
-              className="p-2 rounded-lg border border-slate-200 bg-white text-slate-400
-                         hover:text-slate-600 hover:border-slate-300 transition-colors"
-              title="Refresh"
-            >
-              <ArrowClockwise size={15} className={isLoading ? 'animate-spin' : ''} />
-            </button>
+          {/* Company logo placeholder */}
+          <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-gray-200 bg-white shadow-sm">
+            <div className="w-6 h-6 rounded bg-gray-100 flex items-center justify-center">
+              <span className="text-[8px] font-bold text-gray-500">CO</span>
+            </div>
+            <span className="text-[11px] font-medium text-gray-500">Company Logo</span>
           </div>
         </div>
 
-        {/* Tab bar */}
-        <div className="flex items-center gap-1">
-          {TABS.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium
-                          transition-all duration-150
-                          ${activeTab === tab.id
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-100 border border-transparent'
-                          }`}
-            >
-              <span className={activeTab === tab.id ? 'text-blue-600' : 'text-slate-400'}>{tab.icon}</span>
-              {tab.label}
+        {/* Tab Bar */}
+        <div className="flex items-center gap-1 mb-6 border-b border-gray-200">
+          {TABS.map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`
+                flex items-center gap-2 px-5 py-3 text-[14px] font-semibold
+                border-b-2 -mb-px transition-all cursor-pointer
+                ${tab === t.id
+                  ? 'border-blue-600 text-blue-700'
+                  : 'border-transparent text-gray-400 hover:text-gray-600'
+                }
+              `}>
+              {t.icon}
+              {t.label}
             </button>
           ))}
         </div>
-      </div>
 
-      {/* Tab content */}
-      <div className="px-6 py-5">
-        {activeTab === 'dashboard' && (
-          <DashboardTab projects={projects} onNavigate={onNavigate} />
+        {/* Content */}
+        {isLoading ? (
+          <div className="space-y-3">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-12 rounded-xl bg-white border border-gray-100 shadow-sm animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <>
+            {tab === 'command'  && <CommandCenterTab projects={projects} onNavigate={onNavigate} />}
+            {tab === 'list'     && <ListTab projects={projects} onNavigate={onNavigate} />}
+            {tab === 'roadmap'  && <RoadmapTab projects={projects} />}
+          </>
         )}
-        {activeTab === 'list' && (
-          <ListTab
-            projects={projects}
-            isLoading={isLoading}
-            onNavigate={onNavigate}
-            onRefresh={() => refetch()}
-          />
-        )}
-        {activeTab === 'cards' && (
-          <CardsTab projects={projects} onNavigate={onNavigate} />
-        )}
-        {activeTab === 'roadmap' && (
-          <RoadmapTab projects={projects} onNavigate={onNavigate} />
-        )}
+
       </div>
     </div>
   )

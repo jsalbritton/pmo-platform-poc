@@ -20,6 +20,7 @@ import {
   UsersThree,
   Brain,
   Gear,
+  Stamp,
   MagnifyingGlass,
   ArrowsOut,
   Warning,
@@ -60,6 +61,7 @@ const ROLE_COLORS: Record<string, string> = {
 const NAV_ITEMS = [
   { to: '/portfolio',  icon: Briefcase,   label: 'Portfolio'  },
   { to: '/resources',  icon: UsersThree,  label: 'Resources'  },
+  { to: '/approvals',  icon: Stamp,       label: 'Approvals'  },
   { to: '/ai',         icon: Brain,       label: 'AI Engine'  },
   { to: '/settings',   icon: Gear,        label: 'Settings'   },
 ]
@@ -80,7 +82,7 @@ function InactivityWarningModal({
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 8 }}
         animate={{ opacity: 1, scale: 1,    y: 0  }}
-        className="bg-[#0d1117] border border-amber-500/30 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl"
+        className="bg-[#141414] border border-amber-500/25 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl"
       >
         <div className="flex items-center gap-3 mb-4">
           <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center flex-shrink-0">
@@ -156,12 +158,12 @@ function UserChip({
   const displayName = session.user.email.split('@')[0]
 
   return (
-    <div className="mx-3 mb-2 rounded-xl border border-white/8 bg-white/3 p-3">
-      <div className="flex items-center gap-2 mb-2">
-        <UserCircle size={16} className="text-slate-500 flex-shrink-0" weight="duotone" />
+    <div className="rounded-lg border border-white/8 bg-white/[0.04] p-2.5">
+      <div className="flex items-center gap-2">
+        <UserCircle size={16} className="text-slate-400 flex-shrink-0" weight="duotone" />
         <div className="flex-1 min-w-0">
           <div className="text-[11px] font-medium text-slate-200 truncate">{displayName}</div>
-          <div className="text-[10px] text-slate-600 truncate">{session.user.email}</div>
+          <div className="text-[10px] text-slate-500 truncate">{session.user.email}</div>
         </div>
         <button
           onClick={onSignOut}
@@ -175,10 +177,9 @@ function UserChip({
           <SignOut size={13} weight="bold" />
         </button>
       </div>
-
       <span className={`
         inline-flex items-center text-[10px] font-semibold
-        px-2 py-0.5 rounded-full border ${colorClass}
+        mt-1.5 px-2 py-0.5 rounded-full border ${colorClass}
       `}>
         {roleLabel}
       </span>
@@ -202,7 +203,7 @@ function PortfolioPulse() {
   return (
     <div className="mx-3 mb-2 rounded-xl border border-white/8 bg-white/3 p-3">
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-white">
           Portfolio Health
         </span>
         <span className={`text-lg font-bold tabular-nums ${healthColor}`}>
@@ -216,6 +217,7 @@ function PortfolioPulse() {
           count={stats.onTrack}
           total={stats.total}
           color="bg-emerald-500"
+          countColor="text-emerald-400"
         />
         <PulseRow
           icon={<Warning size={12} className="text-amber-400" weight="fill" />}
@@ -223,6 +225,7 @@ function PortfolioPulse() {
           count={stats.atRisk}
           total={stats.total}
           color="bg-amber-500"
+          countColor="text-amber-400"
         />
         <PulseRow
           icon={<Warning size={12} className="text-red-400" weight="fill" />}
@@ -230,6 +233,7 @@ function PortfolioPulse() {
           count={stats.critical}
           total={stats.total}
           color="bg-red-500"
+          countColor="text-red-400"
         />
       </div>
     </div>
@@ -237,13 +241,14 @@ function PortfolioPulse() {
 }
 
 function PulseRow({
-  icon, label, count, total, color
+  icon, label, count, total, color, countColor = 'text-slate-500'
 }: {
   icon:  React.ReactNode
   label: string
   count: number
   total: number
   color: string
+  countColor?: string
 }) {
   const pct = total > 0 ? (count / total) * 100 : 0
   return (
@@ -252,7 +257,7 @@ function PulseRow({
       <div className="flex-1 min-w-0">
         <div className="flex justify-between items-center mb-0.5">
           <span className="text-[11px] text-slate-400">{label}</span>
-          <span className="text-[11px] text-slate-500 tabular-nums">{count}</span>
+          <span className={`text-[11px] font-semibold tabular-nums ${countColor}`}>{count}</span>
         </div>
         <div className="h-1 rounded-full bg-white/5 overflow-hidden">
           <motion.div
@@ -281,20 +286,21 @@ function Sidebar({
   return (
     <aside className="
       fixed left-0 top-0 bottom-0 w-56
-      bg-[#0d1117] border-r border-white/5
+      bg-[#002a7a] border-r border-[#003da6]
       flex flex-col z-20
     ">
-      {/* Brand */}
-      <div className="px-4 pt-5 pb-4 border-b border-white/5">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-violet-600 flex items-center justify-center flex-shrink-0">
+      {/* Brand + User identity — at the top where users expect it */}
+      <div className="px-4 pt-4 pb-3 border-b border-white/15">
+        <div className="flex items-center gap-2.5 mb-3">
+          <div className="w-7 h-7 rounded-lg bg-white/20 border border-white/25 flex items-center justify-center flex-shrink-0 shadow-lg shadow-black/20">
             <ChartBar size={14} weight="bold" className="text-white" />
           </div>
           <div>
-            <div className="text-sm font-bold text-slate-100 leading-none">PMO Platform</div>
-            <div className="text-[10px] text-slate-600 mt-0.5">Sprint 0 · POC</div>
+            <div className="text-[13px] font-semibold text-white/90 leading-none tracking-tight">PMO Platform</div>
+            <div className="text-[10px] text-white/25 mt-0.5 font-medium">Global IT · POC</div>
           </div>
         </div>
+        {session && <UserChip session={session} onSignOut={onSignOut} />}
       </div>
 
       {/* Command palette trigger */}
@@ -302,31 +308,37 @@ function Sidebar({
         onClick={onCommandPalette}
         className="
           mx-3 mt-3 mb-1 flex items-center gap-2 px-3 py-2
-          rounded-lg border border-white/8 bg-white/3
-          text-slate-500 hover:text-slate-300 hover:border-white/15
-          transition-colors text-xs cursor-pointer group
+          rounded-lg border border-white/[0.07] bg-white/[0.03]
+          text-white/30 hover:text-white/60 hover:border-white/[0.12]
+          transition-all text-xs cursor-pointer group
         "
       >
         <MagnifyingGlass size={12} />
         <span className="flex-1 text-left">Search...</span>
-        <kbd className="text-[10px] bg-white/5 border border-white/10 rounded px-1.5 py-0.5 font-mono
-                        group-hover:border-white/20 transition-colors">
+        <kbd className="text-[10px] bg-white/[0.04] border border-white/[0.08] rounded px-1.5 py-0.5 font-mono
+                        group-hover:border-white/[0.15] transition-colors">
           {formatShortcut('mod+k')}
         </kbd>
       </button>
 
       {/* Nav links */}
       <nav className="flex-1 px-2 pt-2 space-y-0.5 overflow-y-auto">
+        {/* Section: Main */}
+        <div className="px-3 pb-1 pt-0.5">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-white">
+            Main
+          </span>
+        </div>
         {NAV_ITEMS.map(({ to, icon: Icon, label }) => (
           <NavLink
             key={to}
             to={to}
             className={({ isActive }) => `
-              flex items-center gap-3 px-3 py-2 rounded-lg text-sm
-              transition-colors relative group
+              flex items-center gap-2.5 px-3 py-[7px] rounded-md text-[13px]
+              transition-all relative
               ${isActive
-                ? 'bg-blue-600/15 text-blue-300 font-medium'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+                ? 'bg-white/[0.08] text-white font-medium'
+                : 'text-white/35 hover:text-white/70 hover:bg-white/[0.04]'
               }
             `}
           >
@@ -335,31 +347,32 @@ function Sidebar({
                 {isActive && (
                   <motion.div
                     layoutId="nav-indicator"
-                    className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-blue-500 rounded-full"
+                    className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 bg-blue-400 rounded-full"
                     transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                   />
                 )}
-                <Icon size={16} weight={isActive ? 'bold' : 'regular'} />
+                <Icon size={15} weight={isActive ? 'bold' : 'regular'} className={isActive ? 'text-white/80' : ''} />
                 <span>{label}</span>
               </>
             )}
           </NavLink>
         ))}
 
-        {/* Constellation View — separate section */}
-        <div className="pt-3 pb-1 px-3">
-          <div className="text-[10px] uppercase tracking-widest text-slate-600 font-semibold">
+        {/* Section: Views */}
+        <div className="px-3 pb-1 pt-3">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-white">
             Views
-          </div>
+          </span>
         </div>
+
         <NavLink
-          to="/constellation"
+          to="/board/all"
           className={({ isActive }) => `
-            flex items-center gap-3 px-3 py-2 rounded-lg text-sm
-            transition-colors relative group
+            flex items-center gap-2.5 px-3 py-[7px] rounded-md text-[13px]
+            transition-all relative
             ${isActive
-              ? 'bg-violet-600/15 text-violet-300 font-medium'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+              ? 'bg-white/[0.08] text-white font-medium'
+              : 'text-white/35 hover:text-white/70 hover:bg-white/[0.04]'
             }
           `}
         >
@@ -368,42 +381,48 @@ function Sidebar({
               {isActive && (
                 <motion.div
                   layoutId="nav-indicator"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-4 bg-violet-500 rounded-full"
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 bg-blue-400 rounded-full"
                   transition={{ type: 'spring', stiffness: 500, damping: 35 }}
                 />
               )}
-              <ArrowsOut size={16} weight={isActive ? 'bold' : 'regular'} />
-              <span>Constellation</span>
-              <span className="ml-auto text-[9px] bg-violet-500/20 text-violet-400 border border-violet-500/30 rounded px-1.5 py-0.5 font-semibold">
-                NEW
-              </span>
+              <Kanban size={15} weight={isActive ? 'bold' : 'regular'} className={isActive ? 'text-white/80' : ''} />
+              <span>Sprint Board</span>
             </>
           )}
         </NavLink>
 
         <NavLink
-          to="/board/all"
+          to="/constellation"
           className={({ isActive }) => `
-            flex items-center gap-3 px-3 py-2 rounded-lg text-sm
-            transition-colors relative
+            flex items-center gap-2.5 px-3 py-[7px] rounded-md text-[13px]
+            transition-all relative
             ${isActive
-              ? 'bg-blue-600/15 text-blue-300 font-medium'
-              : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
+              ? 'bg-white/[0.08] text-white font-medium'
+              : 'text-white/35 hover:text-white/70 hover:bg-white/[0.04]'
             }
           `}
         >
           {({ isActive }) => (
             <>
-              <Kanban size={16} weight={isActive ? 'bold' : 'regular'} />
-              <span>Sprint Board</span>
+              {isActive && (
+                <motion.div
+                  layoutId="nav-indicator"
+                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 bg-violet-400 rounded-full"
+                  transition={{ type: 'spring', stiffness: 500, damping: 35 }}
+                />
+              )}
+              <ArrowsOut size={15} weight={isActive ? 'bold' : 'regular'} className={isActive ? 'text-white/80' : ''} />
+              <span>Constellation</span>
+              <span className="ml-auto text-[9px] bg-white/20 text-white border border-white/30 rounded px-1.5 py-[2px] font-semibold leading-none">
+                NEW
+              </span>
             </>
           )}
         </NavLink>
       </nav>
 
-      {/* Bottom: user identity + portfolio pulse */}
-      <div className="pb-4">
-        {session && <UserChip session={session} onSignOut={onSignOut} />}
+      {/* Bottom: portfolio pulse summary */}
+      <div className="pb-4 border-t border-white/15 pt-3">
         <PortfolioPulse />
       </div>
     </aside>
@@ -427,14 +446,14 @@ export default function AppShell({
   })
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
+    <div className="flex min-h-screen bg-background">
       <Sidebar
         onCommandPalette={onCommandPalette}
         session={session}
         onSignOut={signOut}
       />
 
-      <main className="ml-56 flex-1 min-w-0 min-h-screen bg-slate-50">
+      <main className="ml-56 flex-1 min-w-0 min-h-screen bg-[#f4f6f9]">
         <AnimatePresence mode="wait">
           <Outlet />
         </AnimatePresence>

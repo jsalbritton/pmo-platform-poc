@@ -89,7 +89,7 @@ function Dropdown<T extends string>({
       transition={{ duration: 0.12, ease: 'easeOut' }}
       className="
         absolute top-full left-0 mt-1.5 z-50 min-w-[160px]
-        bg-[#161b22] border border-white/10 rounded-xl shadow-2xl
+        bg-white border border-gray-200 rounded-xl shadow-lg
         py-1 overflow-hidden
       "
     >
@@ -99,7 +99,7 @@ function Dropdown<T extends string>({
           onClick={() => { onSelect(value); onClose() }}
           className="
             w-full flex items-center gap-2.5 px-3 py-2
-            text-sm text-slate-300 hover:bg-white/5 hover:text-white
+            text-sm text-gray-700 hover:bg-gray-50 hover:text-gray-900
             transition-colors text-left
           "
         >
@@ -184,13 +184,13 @@ function PriorityPill({ item }: { item: WorkItemFull }) {
         title={`Priority: ${cfg.label}`}
         className="
           flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-          border border-white/10 bg-white/3 text-slate-300
-          hover:bg-white/8 hover:border-white/20 transition-colors
+          border border-gray-200 bg-gray-50 text-gray-700
+          hover:bg-gray-100 hover:border-gray-300 transition-colors
         "
       >
         <Icon size={13} weight="bold" className={cfg.color} />
         <span className={cfg.color}>{cfg.label}</span>
-        <CaretDown size={10} weight="bold" className="text-slate-500" />
+        <CaretDown size={10} weight="bold" className="text-gray-500" />
       </button>
 
       <AnimatePresence>
@@ -216,11 +216,11 @@ function AssigneePill({
   const assignee            = item.assignee
 
   const options = [
-    { value: '__unassigned__', label: 'Unassigned', color: 'text-slate-500' },
+    { value: '__unassigned__', label: 'Unassigned', color: 'text-gray-500' },
     ...teamMembers.map((m) => ({
       value: m.id,
       label: profileDisplayName(m),
-      color: 'text-slate-300',
+      color: 'text-gray-700',
     })),
   ]
 
@@ -235,8 +235,8 @@ function AssigneePill({
         title={assignee ? `Assigned to ${profileDisplayName(assignee)}` : 'Unassigned'}
         className="
           flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium
-          border border-white/10 bg-white/3 text-slate-300
-          hover:bg-white/8 hover:border-white/20 transition-colors
+          border border-gray-200 bg-gray-50 text-gray-700
+          hover:bg-gray-100 hover:border-gray-300 transition-colors
         "
       >
         {assignee ? (
@@ -252,11 +252,11 @@ function AssigneePill({
           </>
         ) : (
           <>
-            <UserCircle size={14} className="text-slate-500" weight="duotone" />
-            <span className="text-slate-500">Unassigned</span>
+            <UserCircle size={14} className="text-gray-500" weight="duotone" />
+            <span className="text-gray-500">Unassigned</span>
           </>
         )}
-        <CaretDown size={10} weight="bold" className="text-slate-500" />
+        <CaretDown size={10} weight="bold" className="text-gray-500" />
       </button>
 
       <AnimatePresence>

@@ -18,7 +18,6 @@
  * The feed grows from top (newest first when reversed).
  */
 
-import { motion } from 'framer-motion'
 import {
   Plus,
   PencilSimple,
@@ -44,7 +43,7 @@ function ActionText({ entry }: { entry: ActivityLogEntry }) {
 
   switch (entry.action) {
     case 'created':
-      return <span className="text-slate-300">created this item</span>
+      return <span className="text-gray-700">created this item</span>
 
     case 'status_changed':
     case 'updated': {
@@ -52,26 +51,26 @@ function ActionText({ entry }: { entry: ActivityLogEntry }) {
         const toStatus  = String(changes.status.to) as WorkItemStatus
         const cfg       = STATUS_CONFIG[toStatus] ?? STATUS_CONFIG.backlog
         return (
-          <span className="text-slate-400">
+          <span className="text-gray-600">
             moved to{' '}
             <span className={`font-medium ${cfg.color}`}>{cfg.label}</span>
           </span>
         )
       }
       if (changes?.title) {
-        return <span className="text-slate-400">updated the title</span>
+        return <span className="text-gray-600">updated the title</span>
       }
       if (changes?.description) {
-        return <span className="text-slate-400">updated the description</span>
+        return <span className="text-gray-600">updated the description</span>
       }
       if (changes?.assignee_id) {
-        return <span className="text-slate-400">changed the assignee</span>
+        return <span className="text-gray-600">changed the assignee</span>
       }
       if (changes?.priority) {
         return (
-          <span className="text-slate-400">
+          <span className="text-gray-600">
             changed priority to{' '}
-            <span className="text-slate-300 font-medium capitalize">
+            <span className="text-gray-700 font-medium capitalize">
               {String(changes.priority.to ?? '').replace('_', ' ')}
             </span>
           </span>
@@ -80,23 +79,23 @@ function ActionText({ entry }: { entry: ActivityLogEntry }) {
       if (changes?.due_date) {
         const to = changes.due_date.to
         return (
-          <span className="text-slate-400">
+          <span className="text-gray-600">
             {to ? `set due date to ${String(to)}` : 'removed the due date'}
           </span>
         )
       }
       // Generic fallback
       const fields = Object.keys(changes ?? {}).join(', ')
-      return <span className="text-slate-400">updated {fields || 'this item'}</span>
+      return <span className="text-gray-600">updated {fields || 'this item'}</span>
     }
 
     case 'comment_added': {
       const meta    = entry.metadata as Record<string, unknown> | null
       const preview = String(meta?.body ?? '').slice(0, 60)
       return (
-        <span className="text-slate-400">
+        <span className="text-gray-600">
           commented:{' '}
-          <span className="italic text-slate-500">"{preview}{preview.length >= 60 ? '…' : ''}"</span>
+          <span className="italic text-gray-500">"{preview}{preview.length >= 60 ? '…' : ''}"</span>
         </span>
       )
     }
@@ -104,9 +103,9 @@ function ActionText({ entry }: { entry: ActivityLogEntry }) {
     case 'attachment_added': {
       const meta = entry.metadata as Record<string, unknown> | null
       return (
-        <span className="text-slate-400">
+        <span className="text-gray-600">
           attached{' '}
-          <span className="text-slate-300 font-medium">{String(meta?.file_name ?? 'a file')}</span>
+          <span className="text-gray-700 font-medium">{String(meta?.file_name ?? 'a file')}</span>
         </span>
       )
     }
@@ -114,21 +113,21 @@ function ActionText({ entry }: { entry: ActivityLogEntry }) {
     case 'assigned': {
       const meta = entry.metadata as Record<string, unknown> | null
       return (
-        <span className="text-slate-400">
+        <span className="text-gray-600">
           assigned to{' '}
-          <span className="text-slate-300 font-medium">{String(meta?.assignee_name ?? 'someone')}</span>
+          <span className="text-gray-700 font-medium">{String(meta?.assignee_name ?? 'someone')}</span>
         </span>
       )
     }
 
     default:
-      return <span className="text-slate-500">{entry.action.replace(/_/g, ' ')}</span>
+      return <span className="text-gray-500">{entry.action.replace(/_/g, ' ')}</span>
   }
 }
 
 // Action → icon mapping
 function ActionIcon({ action }: { action: string }) {
-  const cls = 'text-slate-600'
+  const cls = 'text-gray-400'
   if (action === 'created')          return <Plus       size={12} weight="bold"    className={cls} />
   if (action.includes('comment'))    return <ChatCircle size={12} weight="bold"    className={cls} />
   if (action.includes('attachment')) return <Paperclip  size={12} weight="bold"    className={cls} />
@@ -147,10 +146,10 @@ export function ActivityFeed({ entries }: ActivityFeedProps) {
   if (entries.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-16 text-center px-6">
-        <div className="w-10 h-10 rounded-2xl bg-white/3 border border-white/8 flex items-center justify-center">
-          <ClockCounterClockwise size={20} weight="duotone" className="text-slate-600" />
+        <div className="w-10 h-10 rounded-2xl bg-gray-100 border border-gray-200 flex items-center justify-center">
+          <ClockCounterClockwise size={20} weight="duotone" className="text-gray-400" />
         </div>
-        <p className="text-sm text-slate-500">No activity yet</p>
+        <p className="text-sm text-gray-500">No activity yet</p>
       </div>
     )
   }
@@ -159,25 +158,22 @@ export function ActivityFeed({ entries }: ActivityFeedProps) {
     <div className="px-4 py-4 overflow-y-auto flex-1">
       <div className="relative">
         {/* Vertical timeline line */}
-        <div className="absolute left-[13px] top-2 bottom-2 w-px bg-white/5" />
+        <div className="absolute left-[13px] top-2 bottom-2 w-px bg-gray-100" />
 
         <div className="space-y-3">
-          {entries.map((entry, i) => (
-            <motion.div
+          {entries.map((entry) => (
+            <div
               key={entry.id}
-              initial={{ opacity: 0, x: -6 }}
-              animate={{ opacity: 1, x: 0  }}
-              transition={{ delay: i * 0.02, duration: 0.15 }}
-              className="flex gap-3"
+              className="scroll-reveal-left flex gap-3"
             >
               {/* Timeline node */}
               <div className="
                 relative z-10 w-7 h-7 rounded-full
-                bg-[#0d1117] border border-white/10
+                bg-white border border-gray-200
                 flex items-center justify-center flex-shrink-0
               ">
                 {entry.actor ? (
-                  <span className="text-[9px] font-bold text-slate-400">
+                  <span className="text-[9px] font-bold text-gray-600">
                     {profileInitials(entry.actor)}
                   </span>
                 ) : (
@@ -189,17 +185,17 @@ export function ActivityFeed({ entries }: ActivityFeedProps) {
               <div className="flex-1 min-w-0 pt-1">
                 <div className="flex items-start gap-1.5 flex-wrap">
                   {entry.actor && (
-                    <span className="text-xs font-semibold text-slate-300">
+                    <span className="text-xs font-semibold text-gray-700">
                       {profileDisplayName(entry.actor)}
                     </span>
                   )}
                   <span className="text-xs"><ActionText entry={entry} /></span>
                 </div>
-                <div className="text-[10px] text-slate-600 mt-0.5">
+                <div className="text-[10px] text-gray-500 mt-0.5">
                   {relativeTime(entry.created_at)}
                 </div>
               </div>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>

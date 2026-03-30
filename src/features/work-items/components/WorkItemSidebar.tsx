@@ -46,10 +46,10 @@ function SidebarSection({
   children: React.ReactNode
 }) {
   return (
-    <div className="py-3 border-b border-white/5 last:border-0">
+    <div className="py-3 border-b border-gray-100 last:border-0">
       <div className="flex items-center gap-2 mb-2 px-4">
-        <span className="text-slate-600">{icon}</span>
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+        <span className="text-gray-400">{icon}</span>
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">
           {label}
         </span>
       </div>
@@ -68,11 +68,11 @@ function EffortBar({ estimated, actual }: { estimated: number | null; actual: nu
 
   return (
     <div className="mt-2">
-      <div className="flex justify-between text-[10px] text-slate-600 mb-1">
+      <div className="flex justify-between text-[10px] text-gray-500 mb-1">
         <span>{actual ?? 0}h logged</span>
         <span>{estimated}h estimated</span>
       </div>
-      <div className="h-1 rounded-full bg-white/5 overflow-hidden">
+      <div className="h-1 rounded-full bg-gray-100 overflow-hidden">
         <motion.div
           className={`h-full rounded-full ${color}`}
           initial={{ width: 0 }}
@@ -81,7 +81,7 @@ function EffortBar({ estimated, actual }: { estimated: number | null; actual: nu
         />
       </div>
       {overrun && (
-        <div className="flex items-center gap-1 mt-1 text-[10px] text-red-400">
+        <div className="flex items-center gap-1 mt-1 text-[10px] text-red-600">
           <Warning size={10} weight="fill" />
           <span>{Math.round(pct - 100)}% over estimate</span>
         </div>
@@ -123,14 +123,14 @@ function LabelChips({ item }: { item: WorkItemFull }) {
             exit={  { opacity: 0, scale: 0.8  }}
             className="
               group flex items-center gap-1
-              bg-blue-500/10 border border-blue-500/20 rounded-full
-              px-2 py-0.5 text-[11px] text-blue-400
+              bg-blue-50 border border-blue-200 rounded-full
+              px-2 py-0.5 text-[11px] text-blue-600
             "
           >
             {l}
             <button
               onClick={() => removeLabel(l, labels)}
-              className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-600 hover:text-blue-400"
+              className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-400 hover:text-blue-600"
             >
               <XIcon size={9} weight="bold" />
             </button>
@@ -147,17 +147,17 @@ function LabelChips({ item }: { item: WorkItemFull }) {
           onBlur={handleAdd}
           placeholder="label-name"
           className="
-            bg-transparent border-b border-blue-500/40
-            text-[11px] text-slate-300 focus:outline-none
-            placeholder:text-slate-600 w-24 pb-0.5
+            bg-transparent border-b border-blue-300
+            text-[11px] text-gray-700 focus:outline-none
+            placeholder:text-gray-400 w-24 pb-0.5
           "
         />
       ) : (
         <button
           onClick={() => setAdding(true)}
           className="
-            flex items-center gap-0.5 text-[11px] text-slate-600
-            hover:text-slate-400 transition-colors
+            flex items-center gap-0.5 text-[11px] text-gray-400
+            hover:text-gray-600 transition-colors
           "
         >
           <Plus size={10} weight="bold" />
@@ -185,8 +185,8 @@ export function WorkItemSidebar({ item }: WorkItemSidebarProps) {
 
   return (
     <aside className="
-      w-[220px] flex-shrink-0 border-l border-white/5
-      bg-[#0d1117] overflow-y-auto
+      w-[220px] flex-shrink-0 border-l border-gray-100
+      bg-white overflow-y-auto
     ">
 
       {/* ── Dates ──────────────────────────────────────────────────────────── */}
@@ -206,7 +206,7 @@ export function WorkItemSidebar({ item }: WorkItemSidebarProps) {
             className={isOverdue ? '[&_button]:text-red-400 [&_button]:font-semibold' : ''}
           />
           {isOverdue && (
-            <div className="flex items-center gap-1 text-[10px] text-red-400">
+            <div className="flex items-center gap-1 text-[10px] text-red-600">
               <Warning size={10} weight="fill" />
               Overdue
             </div>
@@ -249,10 +249,10 @@ export function WorkItemSidebar({ item }: WorkItemSidebarProps) {
       {item.reporter && (
         <SidebarSection icon={<UserCircle size={12} />} label="Reporter">
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[9px] font-bold text-slate-300 flex-shrink-0">
+            <div className="w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center text-[9px] font-bold text-gray-700 flex-shrink-0">
               {profileInitials(item.reporter)}
             </div>
-            <span className="text-xs text-slate-400 truncate">
+            <span className="text-xs text-gray-600 truncate">
               {profileDisplayName(item.reporter)}
             </span>
           </div>
@@ -271,12 +271,12 @@ export function WorkItemSidebar({ item }: WorkItemSidebarProps) {
             {item.dependencies.map((dep) => (
               <div key={dep.id} className="flex items-center gap-1.5 text-[11px]">
                 <ArrowRight size={10} className={
-                  dep.dependency_type === 'blocks'    ? 'text-red-400' :
-                  dep.dependency_type === 'blocked_by' ? 'text-amber-400' :
-                  'text-slate-500'
+                  dep.dependency_type === 'blocks'    ? 'text-red-600' :
+                  dep.dependency_type === 'blocked_by' ? 'text-amber-600' :
+                  'text-gray-500'
                 } />
-                <span className="text-slate-500 capitalize">{dep.dependency_type.replace('_', ' ')}</span>
-                <span className="text-slate-400 font-mono truncate">
+                <span className="text-gray-500 capitalize">{dep.dependency_type.replace('_', ' ')}</span>
+                <span className="text-gray-600 font-mono truncate">
                   {dep.depends_on_id.split('-')[0].toUpperCase()}
                 </span>
               </div>

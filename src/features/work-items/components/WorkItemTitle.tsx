@@ -104,21 +104,21 @@ export function WorkItemTitle({ itemId, title, editSignal }: WorkItemTitleProps)
               rows={1}
               className="
                 w-full bg-transparent resize-none overflow-hidden
-                text-2xl font-bold text-slate-100 leading-tight
-                border-b border-blue-500/40 pb-1
-                focus:outline-none focus:border-blue-500/80
-                placeholder:text-slate-600
+                text-2xl font-bold text-gray-900 leading-tight
+                border-b border-blue-300 pb-1
+                focus:outline-none focus:border-blue-500
+                placeholder:text-gray-400
                 transition-colors
               "
               placeholder="Untitled"
             />
             <div className="flex items-center justify-between mt-1">
-              <span className="text-[10px] text-slate-600">
+              <span className="text-[10px] text-gray-400">
                 <kbd className="font-mono">{formatShortcut('mod+enter')}</kbd> save &nbsp;·&nbsp;
                 <kbd className="font-mono">Esc</kbd> cancel
               </span>
               {showCharLimit && (
-                <span className={`text-[10px] tabular-nums ${charsRemaining < 20 ? 'text-red-400' : 'text-slate-500'}`}>
+                <span className={`text-[10px] tabular-nums ${charsRemaining < 20 ? 'text-red-600' : 'text-gray-500'}`}>
                   {charsRemaining}
                 </span>
               )}
@@ -134,13 +134,13 @@ export function WorkItemTitle({ itemId, title, editSignal }: WorkItemTitleProps)
             onClick={() => setEditing(true)}
             title="Click to edit (E)"
             className="
-              text-2xl font-bold text-slate-100 leading-tight
-              cursor-text hover:text-white transition-colors
-              rounded-sm hover:bg-white/3 -mx-1 px-1 py-0.5
+              text-2xl font-bold text-gray-900 leading-tight
+              cursor-text hover:text-gray-800 transition-colors
+              rounded-sm hover:bg-gray-50 -mx-1 px-1 py-0.5
               select-text
             "
           >
-            {title || <span className="text-slate-600 italic font-normal text-xl">Untitled</span>}
+            {title || <span className="text-gray-400 italic font-normal text-xl">Untitled</span>}
           </motion.h1>
         )}
       </AnimatePresence>

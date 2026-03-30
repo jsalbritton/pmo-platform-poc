@@ -34,14 +34,14 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
       <circle
         cx={18} cy={18} r={r}
         fill="none"
-        stroke="rgba(255,255,255,0.06)"
+        stroke="rgba(0,0,0,0.06)"
         strokeWidth={3}
       />
       {/* Progress */}
       <motion.circle
         cx={18} cy={18} r={r}
         fill="none"
-        stroke={pct >= 1 ? '#3fb950' : '#58a6ff'}
+        stroke={pct >= 1 ? '#16a34a' : '#2563eb'}
         strokeWidth={3}
         strokeLinecap="round"
         strokeDasharray={circ}
@@ -56,7 +56,7 @@ function ProgressRing({ done, total }: { done: number; total: number }) {
         textAnchor="middle"
         fontSize={9}
         fontWeight={600}
-        fill={pct >= 1 ? '#3fb950' : '#94a3b8'}
+        fill={pct >= 1 ? '#16a34a' : '#6b7280'}
         fontFamily="'JetBrains Mono', monospace"
       >
         {total > 0 ? `${done}/${total}` : '—'}
@@ -91,12 +91,12 @@ function SubTaskRow({
         className="flex-shrink-0 mt-0.5 transition-colors"
       >
         {isDone ? (
-          <CheckCircle size={16} weight="fill" className="text-emerald-400" />
+          <CheckCircle size={16} weight="fill" className="text-emerald-600" />
         ) : (
-          <Circle size={16} weight="regular" className="text-slate-600 group-hover:text-slate-400 transition-colors" />
+          <Circle size={16} weight="regular" className="text-gray-300 group-hover:text-gray-400 transition-colors" />
         )}
       </button>
-      <span className={`text-sm leading-relaxed flex-1 min-w-0 ${isDone ? 'line-through text-slate-600' : 'text-slate-300'}`}>
+      <span className={`text-sm leading-relaxed flex-1 min-w-0 ${isDone ? 'line-through text-gray-400' : 'text-gray-700'}`}>
         {task.title}
       </span>
     </motion.div>
@@ -149,8 +149,8 @@ function AddSubTask({
       <button
         onClick={() => setAdding(true)}
         className="
-          flex items-center gap-1.5 mt-1 text-xs text-slate-600
-          hover:text-slate-400 transition-colors py-1
+          flex items-center gap-1.5 mt-1 text-xs text-gray-400
+          hover:text-gray-600 transition-colors py-1
         "
       >
         <Plus size={12} weight="bold" />
@@ -165,7 +165,7 @@ function AddSubTask({
       animate={{ opacity: 1, height: 'auto' }}
       className="mt-1 flex items-center gap-2"
     >
-      <Circle size={16} className="text-slate-700 flex-shrink-0" />
+      <Circle size={16} className="text-gray-200 flex-shrink-0" />
       <input
         autoFocus
         value={title}
@@ -174,9 +174,9 @@ function AddSubTask({
         onBlur={handleAdd}
         placeholder="Sub-task title…"
         className="
-          flex-1 bg-transparent border-b border-blue-500/40 pb-0.5
-          text-sm text-slate-200 focus:outline-none
-          focus:border-blue-500/80 placeholder:text-slate-600
+          flex-1 bg-transparent border-b border-blue-300 pb-0.5
+          text-sm text-gray-800 focus:outline-none
+          focus:border-blue-500 placeholder:text-gray-400
           transition-colors
         "
       />
@@ -208,7 +208,7 @@ export function WorkItemSubTasks({ item }: WorkItemSubTasksProps) {
     <div className="px-5 py-3">
       {/* Section header */}
       <div className="flex items-center gap-2.5 mb-2">
-        <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-600">
+        <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500">
           Sub-tasks
         </div>
         <div className="flex-1" />

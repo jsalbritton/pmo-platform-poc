@@ -80,27 +80,27 @@ export function KanbanColumn({
         onClick={onToggle}
         className="
           flex-shrink-0 w-10 rounded-xl
-          bg-[#0d1117] border border-white/8
+          bg-white border border-gray-200
           flex flex-col items-center py-3 gap-2
-          hover:bg-[#161b22] hover:border-white/12
+          hover:bg-gray-50 hover:border-gray-300
           transition-colors cursor-pointer
           group
         "
       >
-        <CaretRight size={12} className="text-slate-500 group-hover:text-slate-400" />
+        <CaretRight size={12} className="text-gray-500 group-hover:text-gray-600" />
         <div
           className="w-2 h-2 rounded-full flex-shrink-0"
           style={{ backgroundColor: column.dotColor }}
         />
         <span className="
-          text-[10px] font-medium text-slate-500
+          text-[10px] font-medium text-gray-500
           [writing-mode:vertical-lr] [text-orientation:mixed]
-          group-hover:text-slate-400
+          group-hover:text-gray-600
         ">
           {column.label}
         </span>
         {count > 0 && (
-          <span className="text-[10px] text-slate-600 font-mono mt-1">
+          <span className="text-[10px] text-gray-400 font-mono mt-1">
             {count}
           </span>
         )}
@@ -113,24 +113,24 @@ export function KanbanColumn({
     <div
       className={`
         flex flex-col min-w-[260px] w-[260px] max-w-[320px]
-        rounded-xl bg-[#0d1117]
+        rounded-xl bg-white
         border transition-colors duration-150
         ${isActive
-          ? 'border-blue-500/40 bg-blue-500/[0.02]'
+          ? 'border-blue-400/40 bg-blue-50/50'
           : wipStatus === 'over'
-          ? 'border-red-500/30'
+          ? 'border-red-300'
           : wipStatus === 'at'
-          ? 'border-amber-500/20'
-          : 'border-white/8'
+          ? 'border-amber-300'
+          : 'border-gray-200'
         }
       `}
     >
       {/* ── Column Header ──────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-white/5 flex-shrink-0">
+      <div className="flex items-center gap-2 px-3 py-2.5 border-b border-gray-100 flex-shrink-0">
         {/* Collapse toggle */}
         <button
           onClick={onToggle}
-          className="text-slate-600 hover:text-slate-400 transition-colors p-0.5 -ml-0.5"
+          className="text-gray-400 hover:text-gray-600 transition-colors p-0.5 -ml-0.5"
           aria-label={`Collapse ${column.label} column`}
         >
           <CaretDown size={12} weight="bold" />
@@ -160,10 +160,10 @@ export function KanbanColumn({
                 flex items-center gap-0.5 text-[10px] font-mono px-1 py-0.5 rounded
                 transition-colors cursor-pointer
                 ${wipStatus === 'over'
-                  ? 'text-red-400 bg-red-500/15'
+                  ? 'text-red-600 bg-red-50'
                   : wipStatus === 'at'
-                  ? 'text-amber-400 bg-amber-500/10'
-                  : 'text-slate-500 bg-white/5'
+                  ? 'text-amber-600 bg-amber-50'
+                  : 'text-gray-500 bg-gray-100'
                 }
               `}
               title="Click to remove WIP limit"
@@ -178,8 +178,8 @@ export function KanbanColumn({
             text-[11px] font-mono font-medium
             px-1.5 py-0.5 rounded
             ${wipStatus === 'over'
-              ? 'text-red-400 bg-red-500/10'
-              : 'text-slate-500 bg-white/5'
+              ? 'text-red-600 bg-red-50'
+              : 'text-gray-500 bg-gray-100'
             }
           `}>
             {count}
@@ -209,11 +209,11 @@ export function KanbanColumn({
             h-20 rounded-lg border border-dashed
             transition-colors
             ${isActive
-              ? 'border-blue-500/40 bg-blue-500/[0.03]'
-              : 'border-white/8'
+              ? 'border-blue-400/40 bg-blue-50/50'
+              : 'border-gray-200'
             }
           `}>
-            <span className="text-[11px] text-slate-700">
+            <span className="text-[11px] text-gray-400">
               {isActive ? 'Drop here' : 'No items'}
             </span>
           </div>
@@ -223,9 +223,9 @@ export function KanbanColumn({
       {/* ── Add Item Button ────────────────────────────────────────────────── */}
       <button className="
         flex items-center gap-1.5 px-3 py-2
-        text-[11px] text-slate-600
-        hover:text-slate-400 hover:bg-white/3
-        border-t border-white/5
+        text-[11px] text-gray-400
+        hover:text-gray-600 hover:bg-gray-50
+        border-t border-gray-100
         transition-colors rounded-b-xl
       ">
         <Plus size={12} weight="bold" />
@@ -247,8 +247,8 @@ export function CollapsedStrip({ columns, onExpand }: CollapsedStripProps) {
   if (columns.length === 0) return null
 
   return (
-    <div className="flex items-center gap-2 px-2 py-2 border-t border-white/5 bg-white/[0.01]">
-      <span className="text-[10px] text-slate-700 uppercase tracking-wider font-medium mr-1">
+    <div className="flex items-center gap-2 px-2 py-2 border-t border-gray-100 bg-gray-50/50">
+      <span className="text-[10px] text-gray-400 uppercase tracking-wider font-medium mr-1">
         Hidden
       </span>
       {columns.map((col) => (
@@ -257,8 +257,8 @@ export function CollapsedStrip({ columns, onExpand }: CollapsedStripProps) {
           onClick={() => onExpand(col.id)}
           className="
             flex items-center gap-1.5 px-2.5 py-1 rounded-lg
-            bg-white/3 border border-white/8
-            hover:bg-white/5 hover:border-white/12
+            bg-gray-50 border border-gray-200
+            hover:bg-gray-100 hover:border-gray-300
             transition-colors text-[11px]
           "
         >
@@ -268,7 +268,7 @@ export function CollapsedStrip({ columns, onExpand }: CollapsedStripProps) {
           />
           <span className={`${col.color} font-medium`}>{col.label}</span>
           {col.items.length > 0 && (
-            <span className="text-slate-600 font-mono">{col.items.length}</span>
+            <span className="text-gray-400 font-mono">{col.items.length}</span>
           )}
         </button>
       ))}

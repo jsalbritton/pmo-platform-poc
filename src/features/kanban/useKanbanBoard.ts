@@ -211,7 +211,7 @@ async function fetchProjectItems(projectId: string, sprintScope: SprintScope): P
   return (data ?? []) as unknown as KanbanItem[]
 }
 
-/** Fetch team members who have items in the current dataset */
+/* Fetch team members who have items in the current dataset (reserved for Sprint 2 team filter)
 async function fetchTeamFromItems(items: KanbanItem[]): Promise<WorkItemProfile[]> {
   const seen = new Set<string>()
   const team: WorkItemProfile[] = []
@@ -228,6 +228,7 @@ async function fetchTeamFromItems(items: KanbanItem[]): Promise<WorkItemProfile[
     )
   )
 }
+*/
 
 /** Extract unique projects from items */
 function extractProjects(items: KanbanItem[]): BoardProject[] {
@@ -550,8 +551,8 @@ export function useKanbanBoard(projectId?: string) {
           if (groupBy === 'status')   patch.status      = newColumnId as WorkItemStatus
           if (groupBy === 'priority') patch.priority     = newColumnId as WorkItemPriority
           if (groupBy === 'type')     patch.type         = newColumnId as WorkItemType
-          if (groupBy === 'assignee') patch.assignee_id  = newColumnId === '__unassigned__' ? null : newColumnId
-          if (groupBy === 'project')  patch.project_id   = newColumnId === '__no_project__' ? null : newColumnId
+          if (groupBy === 'assignee') patch.assignee_id  = newColumnId === '__unassigned__' ? undefined : newColumnId
+          if (groupBy === 'project')  patch.project_id   = newColumnId === '__no_project__' ? undefined : newColumnId
           return { ...item, ...patch }
         })
         queryClient.setQueryData(queryKey, updated)

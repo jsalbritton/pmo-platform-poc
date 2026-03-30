@@ -49,25 +49,25 @@ function ShortcutLegend({ onClose }: { onClose: () => void }) {
       exit={  { opacity: 0, y: -8, scale: 0.96  }}
       className="
         absolute top-full right-0 mt-2 z-50
-        bg-[#161b22] border border-white/10 rounded-xl shadow-2xl
+        bg-white border border-gray-200 rounded-xl shadow-lg
         p-4 min-w-[220px]
       "
     >
       <div className="flex items-center justify-between mb-3">
-        <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-500">
+        <span className="text-[11px] font-semibold uppercase tracking-widest text-gray-500">
           Keyboard shortcuts
         </span>
-        <button onClick={onClose} className="text-slate-600 hover:text-slate-400 transition-colors">
+        <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
           <X size={12} weight="bold" />
         </button>
       </div>
       <div className="space-y-1.5">
         {SHORTCUTS.map(({ key, label }) => (
           <div key={key} className="flex items-center justify-between gap-4">
-            <span className="text-[11px] text-slate-400">{label}</span>
+            <span className="text-[11px] text-gray-600">{label}</span>
             <kbd className="
-              text-[10px] font-mono bg-white/5 border border-white/10
-              rounded px-1.5 py-0.5 text-slate-400 whitespace-nowrap
+              text-[10px] font-mono bg-gray-50 border border-gray-200
+              rounded px-1.5 py-0.5 text-gray-600 whitespace-nowrap
             ">
               {key}
             </kbd>
@@ -112,7 +112,7 @@ export function WorkItemHeader({
   return (
     <div className="
       flex items-center gap-2 px-4 py-3
-      border-b border-white/5 bg-[#0d1117]
+      border-b border-gray-100 bg-white
       flex-shrink-0
     ">
       {/* Type badge */}
@@ -126,20 +126,20 @@ export function WorkItemHeader({
       </span>
 
       {/* Breadcrumb */}
-      <div className="flex items-center gap-1 text-[11px] text-slate-500 min-w-0 flex-1">
-        <span className="truncate hover:text-slate-300 cursor-pointer transition-colors">
+      <div className="flex items-center gap-1 text-[11px] text-gray-500 min-w-0 flex-1">
+        <span className="truncate hover:text-gray-700 cursor-pointer transition-colors">
           Project
         </span>
         {item.sprint_id && (
           <>
             <CaretRight size={10} weight="bold" />
-            <span className="truncate hover:text-slate-300 cursor-pointer transition-colors">
+            <span className="truncate hover:text-gray-700 cursor-pointer transition-colors">
               Sprint
             </span>
           </>
         )}
         <CaretRight size={10} weight="bold" />
-        <span className="font-mono text-slate-600">{shortId}</span>
+        <span className="font-mono text-gray-400">{shortId}</span>
       </div>
 
       {/* Actions */}
@@ -151,8 +151,8 @@ export function WorkItemHeader({
             onClick={() => setShowShortcuts((v) => !v)}
             title="Keyboard shortcuts (?)"
             className="
-              p-1.5 rounded-lg text-slate-600
-              hover:text-slate-400 hover:bg-white/5
+              p-1.5 rounded-lg text-gray-400
+              hover:text-gray-600 hover:bg-gray-50
               transition-colors
             "
           >
@@ -171,8 +171,8 @@ export function WorkItemHeader({
           onClick={handleCopyLink}
           title={`Copy permalink (${formatShortcut('mod+shift+c')})`}
           className="
-            p-1.5 rounded-lg text-slate-600
-            hover:text-slate-400 hover:bg-white/5
+            p-1.5 rounded-lg text-gray-400
+            hover:text-gray-600 hover:bg-gray-50
             transition-colors relative
           "
         >
@@ -183,7 +183,7 @@ export function WorkItemHeader({
                 initial={{ scale: 0.6, opacity: 0 }}
                 animate={{ scale: 1,   opacity: 1 }}
                 exit={  { scale: 0.6, opacity: 0 }}
-                className="text-emerald-400"
+                className="text-emerald-600"
               >
                 <Check size={14} weight="bold" />
               </motion.span>
@@ -205,8 +205,8 @@ export function WorkItemHeader({
           onClick={onExpand}
           title={isExpanded ? 'Collapse panel' : 'Expand panel'}
           className="
-            p-1.5 rounded-lg text-slate-600
-            hover:text-slate-400 hover:bg-white/5
+            p-1.5 rounded-lg text-gray-400
+            hover:text-gray-600 hover:bg-gray-50
             transition-colors
           "
         >
@@ -221,8 +221,8 @@ export function WorkItemHeader({
           onClick={onClose}
           title="Close (Esc)"
           className="
-            p-1.5 rounded-lg text-slate-600
-            hover:text-red-400 hover:bg-red-500/10
+            p-1.5 rounded-lg text-gray-400
+            hover:text-red-600 hover:bg-red-50
             transition-colors
           "
         >

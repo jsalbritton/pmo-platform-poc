@@ -72,8 +72,8 @@ interface WorkItemTabsProps {
 export function WorkItemTabs({ activeTab, onTabChange, item }: WorkItemTabsProps) {
   return (
     <div className="
-      flex items-end gap-0 border-b border-white/5
-      px-5 flex-shrink-0 bg-[#0d1117]
+      flex items-end gap-0 border-b border-gray-100
+      px-5 flex-shrink-0 bg-white
     ">
       {TABS.map(({ id, label, icon: Icon, count }) => {
         const isActive  = activeTab === id
@@ -86,7 +86,7 @@ export function WorkItemTabs({ activeTab, onTabChange, item }: WorkItemTabsProps
             className={`
               relative flex items-center gap-1.5 px-3 py-3
               text-xs font-medium transition-colors
-              ${isActive ? 'text-slate-200' : 'text-slate-500 hover:text-slate-300'}
+              ${isActive ? 'text-gray-900' : 'text-gray-500 hover:text-gray-700'}
             `}
           >
             <Icon size={13} weight={isActive ? 'bold' : 'regular'} />
@@ -97,8 +97,8 @@ export function WorkItemTabs({ activeTab, onTabChange, item }: WorkItemTabsProps
               <span className={`
                 text-[10px] font-semibold rounded-full px-1.5 py-0.5 leading-none
                 ${isActive
-                  ? 'bg-blue-500/20 text-blue-400'
-                  : 'bg-white/5 text-slate-500'
+                  ? 'bg-blue-100 text-blue-600'
+                  : 'bg-gray-100 text-gray-500'
                 }
               `}>
                 {badgeCount}

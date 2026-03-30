@@ -17,17 +17,127 @@
  *   G then J  → group by project
  */
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef, Component } from 'react'
+import type { ReactNode, ErrorInfo } from 'react'
 import { useParams, useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/hooks/useAuth'
 import { WorkItemDetail } from '@/features/work-items'
 import { useKanbanBoard, KanbanBoard, BoardHeader } from '@/features/kanban'
+import type { KanbanFilters } from '@/features/kanban'
 
 // ─── UUID VALIDATION ────────────────────────────────────────────────────────
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function isValidUUID(s: string | undefined): s is string {
   return !!s && UUID_RE.test(s)
+}
+
+// ─── CROSS-PROJECT ITEM LIMIT ────────────────────────────────────────────────
+// @dnd-kit registers a DragSensor for every useSortable card. At 1000+ items
+// this saturates the event-listener budget and hangs the browser. Cap cross-
+// project renders at 300 items; beyond that ask the user to filter first.
+const CROSS_PROJECT_ITEM_LIMIT = 300
+
+// ─── ERROR BOUNDARY ──────────────────────────────────────────────────────────
+
+interface ErrorBoundaryState { error: Error | null }
+
+class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryState> {
+  constructor(props: { children: ReactNode }) {
+    super(props)
+    this.state = { error: null }
+  }
+
+  static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { error }
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('[Board] Render error:', error, info)
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-3 px-6 max-w-md">
+            <div className="w-10 h-10 mx-auto rounded-xl bg-red-50 border border-red-100 flex items-center justify-center">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                <path d="M10 7v4M10 13h.01M3 17h14L10 3 3 17z" stroke="#f87171" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            </div>
+            <p className="text-sm font-medium text-red-600">Board render error</p>
+            <p className="text-xs text-gray-500 font-mono bg-gray-50 rounded-lg px-3 py-2 text-left break-all">
+              {this.state.error.message}
+            </p>
+            <button
+              className="text-xs text-blue-600 hover:text-blue-500 underline cursor-pointer"
+              onClick={() => this.setState({ error: null })}
+            >
+              Try again
+            </button>
+          </div>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
+// ─── TOO-MANY-ITEMS OVERLAY ──────────────────────────────────────────────────
+
+interface TooManyItemsProps {
+  totalItems:  number
+  projects:    { id: string; name: string }[]
+  onFilter:    (projectIds: string[]) => void
+}
+
+function TooManyItems({ totalItems, projects, onFilter }: TooManyItemsProps) {
+  return (
+    <div className="flex-1 flex items-center justify-center">
+      <div className="text-center space-y-4 px-6 max-w-sm">
+        <div className="w-12 h-12 mx-auto rounded-2xl bg-amber-50 border border-amber-100 flex items-center justify-center">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <rect x="2" y="2" width="5" height="18" rx="1.5" stroke="#f59e0b" strokeWidth="1.5"/>
+            <rect x="9" y="5" width="5" height="15" rx="1.5" stroke="#f59e0b" strokeWidth="1.5"/>
+            <rect x="16" y="8" width="5" height="12" rx="1.5" stroke="#f59e0b" strokeWidth="1.5"/>
+          </svg>
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-gray-800">
+            {totalItems.toLocaleString()} items across all sprints
+          </p>
+          <p className="text-xs text-gray-500 mt-1">
+            Rendering the full cross-project board would freeze your browser. Filter to one or more projects to load the board.
+          </p>
+        </div>
+        <div className="flex flex-col gap-1.5 mt-2 max-h-48 overflow-y-auto">
+          {projects.map(p => (
+            <button
+              key={p.id}
+              onClick={() => onFilter([p.id])}
+              className="
+                text-xs text-left px-3 py-2 rounded-lg
+                bg-gray-50 hover:bg-gray-100 border border-gray-200 hover:border-gray-300
+                text-gray-700 hover:text-gray-900
+                transition-colors cursor-pointer
+              "
+            >
+              {p.name}
+            </button>
+          ))}
+        </div>
+        {projects.length > 1 && (
+          <button
+            onClick={() => onFilter(projects.map(p => p.id))}
+            className="text-xs text-blue-600 hover:text-blue-500 underline cursor-pointer"
+          >
+            Show all {projects.length} projects together
+          </button>
+        )}
+      </div>
+    </div>
+  )
 }
 
 // ─── LOADING SKELETON ────────────────────────────────────────────────────────
@@ -40,28 +150,28 @@ function BoardSkeleton() {
           key={i}
           className="
             w-[260px] flex-shrink-0 rounded-xl
-            bg-[#0d1117] border border-white/8
+            bg-white border border-gray-200
           "
         >
-          <div className="flex items-center gap-2 px-3 py-3 border-b border-white/5">
-            <div className="w-2.5 h-2.5 rounded-full bg-white/10" />
-            <div className="h-3 bg-white/5 rounded w-16" />
+          <div className="flex items-center gap-2 px-3 py-3 border-b border-gray-100">
+            <div className="w-2.5 h-2.5 rounded-full bg-gray-200" />
+            <div className="h-3 bg-gray-100 rounded w-16" />
             <div className="flex-1" />
-            <div className="h-3 bg-white/5 rounded w-6" />
+            <div className="h-3 bg-gray-100 rounded w-6" />
           </div>
           <div className="px-2 py-2 space-y-1.5">
             {Array.from({ length: 2 + (i % 3) }).map((_, j) => (
               <div
                 key={j}
                 className="
-                  rounded-lg bg-[#161b22] border border-white/5
+                  rounded-lg bg-gray-50 border border-gray-100
                   px-3 py-2.5 space-y-2
                 "
               >
-                <div className="h-3 bg-white/5 rounded w-4/5" />
+                <div className="h-3 bg-gray-100 rounded w-4/5" />
                 <div className="flex gap-1.5">
-                  <div className="h-2.5 bg-white/5 rounded w-10" />
-                  <div className="h-2.5 bg-white/5 rounded w-8" />
+                  <div className="h-2.5 bg-gray-100 rounded w-10" />
+                  <div className="h-2.5 bg-gray-100 rounded w-8" />
                 </div>
               </div>
             ))}
@@ -78,10 +188,10 @@ function BoardError() {
   return (
     <div className="flex-1 flex items-center justify-center">
       <div className="text-center space-y-2 px-6">
-        <p className="text-sm text-red-400 font-medium">
+        <p className="text-sm text-red-600 font-medium">
           Failed to load board data
         </p>
-        <p className="text-xs text-slate-600">
+        <p className="text-xs text-gray-400">
           Check your connection and try refreshing the page.
         </p>
       </div>
@@ -95,7 +205,7 @@ function BoardEmpty({ isCrossProject }: { isCrossProject: boolean }) {
   return (
     <div className="flex-1 flex items-center justify-center">
       <div className="text-center space-y-3 px-6">
-        <div className="w-12 h-12 mx-auto rounded-2xl bg-white/3 border border-white/8 flex items-center justify-center">
+        <div className="w-12 h-12 mx-auto rounded-2xl bg-gray-50 border border-gray-200 flex items-center justify-center">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
             <rect x="3" y="3" width="5" height="18" rx="1" stroke="#475569" strokeWidth="1.5"/>
             <rect x="10" y="3" width="5" height="12" rx="1" stroke="#475569" strokeWidth="1.5"/>
@@ -103,13 +213,13 @@ function BoardEmpty({ isCrossProject }: { isCrossProject: boolean }) {
           </svg>
         </div>
         <div>
-          <p className="text-sm font-medium text-slate-400">
+          <p className="text-sm font-medium text-gray-500">
             {isCrossProject
               ? 'No items in active sprints'
               : 'No work items in this scope'
             }
           </p>
-          <p className="text-xs text-slate-600 mt-0.5">
+          <p className="text-xs text-gray-400 mt-0.5">
             {isCrossProject
               ? 'Try switching to "All Sprints" or check that projects have active sprints.'
               : 'Try selecting a different sprint scope or viewing all sprints.'
@@ -159,11 +269,41 @@ export default function Board() {
     setShowBoardSearch(v => {
       if (v) {
         // Closing search — clear the search filter
-        board.setFilters({ ...board.filters, search: '' })
+        board.setFilters({ ...board.filters, search: '' } as KanbanFilters)
       }
       return !v
     })
   }, [board])
+
+  // ── Default "My Items" filter on first cross-project load ────────────────
+  // When the Sprint Board opens in cross-project mode and no filters are set,
+  // default to the signed-in user's assignee so the board renders immediately
+  // instead of hitting the 1,000-item gate. Users can clear this to see all.
+  const hasSetDefaultFilter = useRef(false)
+  useEffect(() => {
+    if (
+      !hasSetDefaultFilter.current &&
+      board.isCrossProject &&
+      !board.isLoading &&
+      currentUserId &&
+      (board.filters.assignees ?? []).length === 0 &&
+      (board.filters.projects ?? []).length === 0
+    ) {
+      hasSetDefaultFilter.current = true
+      board.setFilters({ ...board.filters, assignees: [currentUserId] } as KanbanFilters)
+    }
+  }, [board.isCrossProject, board.isLoading, currentUserId, board])
+
+  // ── Too-many-items guard ──────────────────────────────────────────────────
+  // Only block rendering when BOTH assignees AND projects are unfiltered —
+  // i.e. the user explicitly cleared all filters and is trying to render everything.
+  const tooManyItems =
+    board.isCrossProject &&
+    !board.isLoading &&
+    !board.isError &&
+    board.filteredCount > CROSS_PROJECT_ITEM_LIMIT &&
+    (board.filters.projects ?? []).length === 0 &&
+    (board.filters.assignees ?? []).length === 0
 
   // ── Keyboard shortcuts ────────────────────────────────────────────────────
   useEffect(() => {
@@ -255,16 +395,27 @@ export default function Board() {
         <BoardEmpty isCrossProject={board.isCrossProject} />
       )}
 
-      {!board.isLoading && !board.isError && board.totalItems > 0 && (
-        <KanbanBoard
-          visibleColumns={board.visibleColumns}
-          hiddenColumns={board.hiddenColumns}
-          collapsedColumns={board.collapsedColumns}
-          onToggleCollapse={board.toggleCollapse}
-          onCardClick={openItem}
-          onMoveItem={board.moveItem}
-          onSetWipLimit={board.setWipLimit}
+      {/* Too-many-items guard — render this INSTEAD of the board */}
+      {tooManyItems && (
+        <TooManyItems
+          totalItems={board.totalItems}
+          projects={board.availableProjects ?? []}
+          onFilter={(ids) => board.setFilters({ ...board.filters, projects: ids } as KanbanFilters)}
         />
+      )}
+
+      {!board.isLoading && !board.isError && board.totalItems > 0 && !tooManyItems && (
+        <ErrorBoundary>
+          <KanbanBoard
+            visibleColumns={board.visibleColumns}
+            hiddenColumns={board.hiddenColumns}
+            collapsedColumns={board.collapsedColumns}
+            onToggleCollapse={board.toggleCollapse}
+            onCardClick={openItem}
+            onMoveItem={board.moveItem}
+            onSetWipLimit={board.setWipLimit}
+          />
+        </ErrorBoundary>
       )}
 
       {/* ── Work Item Detail slide-over ─────────────────────────────────────── */}

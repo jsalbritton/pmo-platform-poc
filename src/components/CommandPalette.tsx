@@ -12,10 +12,9 @@
  * The open/close state lives in App.tsx and is passed down as props.
  */
 
-import { useEffect, useCallback } from 'react'
+import { useEffect, useCallback, useRef } from 'react'
 import { Command } from 'cmdk'
 import { useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
 import {
   Briefcase,
   ArrowsOut,
@@ -95,15 +94,14 @@ interface CommandPaletteProps {
 export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
   const navigate = useNavigate()
   const { data: projects = [] } = useProjects({ pageSize: 150 })
+  const inputRef = useRef<HTMLInputElement | null>(null)
 
   // Keyboard shortcut: ⌘K / Ctrl+K
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault()
-        // Toggle — if already open, close it
         if (open) onClose()
-        // If closed, the parent's handler opens it
       }
       if (e.key === 'Escape' && open) {
         onClose()
@@ -113,134 +111,131 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
     return () => window.removeEventListener('keydown', handleKey)
   }, [open, onClose])
 
+  // Focus input when palette opens.
+  // autoFocus won't fire on a display:none input, so we do it manually.
+  useEffect(() => {
+    if (open) {
+      requestAnimationFrame(() => inputRef.current?.focus())
+    }
+  }, [open])
+
   const goTo = useCallback((path: string) => {
     navigate(path)
     onClose()
   }, [navigate, onClose])
 
+  const cls = open ? 'is-open' : ''
+
   return (
-    <AnimatePresence>
-      {open && (
-        <>
-          {/* Backdrop */}
-          <motion.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
-            onClick={onClose}
-          />
+    <>
+      {/* Backdrop — always in DOM, toggled via .cp-backdrop.is-open.
+          CSS: transition-behavior:allow-discrete lets display itself
+          transition so both entry AND exit animate in pure CSS. */}
+      <div
+        className={`cp-backdrop ${cls}`}
+        onClick={onClose}
+        aria-hidden="true"
+      />
 
-          {/* Palette */}
-          <motion.div
-            key="palette"
-            initial={{ opacity: 0, scale: 0.96, y: -8 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.96, y: -8 }}
-            transition={{ duration: 0.15, ease: 'easeOut' }}
-            className="fixed top-24 left-1/2 -translate-x-1/2 z-50 w-full max-w-xl"
-          >
-            <Command
+      {/* Palette card — always in DOM, toggled via .cp-panel.is-open */}
+      <div className={`cp-panel ${cls}`}>
+        <Command
+          className="
+            bg-[#1c2333] border border-white/12 rounded-2xl
+            shadow-2xl overflow-hidden
+          "
+          shouldFilter={true}
+          loop
+        >
+          {/* Input */}
+          <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/8">
+            <MagnifyingGlass size={16} className="text-slate-500 flex-shrink-0" />
+            <Command.Input
+              ref={inputRef}
+              placeholder="Search projects, navigate..."
               className="
-                bg-[#1c2333] border border-white/12 rounded-2xl
-                shadow-2xl overflow-hidden
+                flex-1 bg-transparent outline-none text-sm text-slate-100
+                placeholder-slate-600
               "
-              shouldFilter={true}
-              loop
+            />
+            <button
+              onClick={onClose}
+              className="
+                flex items-center justify-center w-6 h-6 rounded-md
+                bg-white/5 border border-white/10
+                text-slate-500 hover:text-slate-300 hover:bg-white/10
+                transition-colors flex-shrink-0 cursor-pointer
+              "
+              aria-label="Close"
+              title="Close (Esc)"
             >
-              {/* Input */}
-              <div className="flex items-center gap-3 px-4 py-3.5 border-b border-white/8">
-                <MagnifyingGlass size={16} className="text-slate-500 flex-shrink-0" />
-                <Command.Input
-                  placeholder="Search projects, navigate..."
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+              </svg>
+            </button>
+          </div>
+
+          {/* Results */}
+          <Command.List className="overflow-y-auto max-h-96 py-2">
+            <Command.Empty className="py-8 text-center text-sm text-slate-500">
+              No results found
+            </Command.Empty>
+
+            {/* Quick navigation */}
+            <Command.Group
+              heading={
+                <span className="px-4 py-1 text-[10px] uppercase tracking-widest text-slate-600 font-semibold block">
+                  Navigate
+                </span>
+              }
+            >
+              {QUICK_ACTIONS.map(action => (
+                <Command.Item
+                  key={action.id}
+                  value={action.label}
+                  onSelect={() => goTo(action.to)}
                   className="
-                    flex-1 bg-transparent outline-none text-sm text-slate-100
-                    placeholder-slate-600
+                    flex items-center gap-3 px-3 py-2 rounded-lg mx-1
+                    cursor-pointer text-sm
+                    aria-selected:bg-white/8 aria-selected:text-slate-100
+                    text-slate-400 transition-colors
                   "
-                  autoFocus
-                />
-                <button
-                  onClick={onClose}
-                  className="
-                    flex items-center justify-center w-6 h-6 rounded-md
-                    bg-white/5 border border-white/10
-                    text-slate-500 hover:text-slate-300 hover:bg-white/10
-                    transition-colors flex-shrink-0 cursor-pointer
-                  "
-                  aria-label="Close"
-                  title="Close (Esc)"
                 >
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                    <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                  </svg>
-                </button>
-              </div>
+                  <action.icon size={14} className="text-slate-500" />
+                  <span>{action.label}</span>
+                  <ArrowRight size={12} className="ml-auto text-slate-600" />
+                </Command.Item>
+              ))}
+            </Command.Group>
 
-              {/* Results */}
-              <Command.List className="overflow-y-auto max-h-96 py-2">
-                <Command.Empty className="py-8 text-center text-sm text-slate-500">
-                  No results found
-                </Command.Empty>
+            {/* Project search */}
+            {projects.length > 0 && (
+              <Command.Group
+                heading={
+                  <span className="px-4 py-1 text-[10px] uppercase tracking-widest text-slate-600 font-semibold block mt-1">
+                    Projects ({projects.length})
+                  </span>
+                }
+              >
+                {projects.map(project => (
+                  <ProjectItem
+                    key={project.id}
+                    project={project}
+                    onSelect={() => goTo(`/project/${project.id}`)}
+                  />
+                ))}
+              </Command.Group>
+            )}
+          </Command.List>
 
-                {/* Quick navigation */}
-                <Command.Group
-                  heading={
-                    <span className="px-4 py-1 text-[10px] uppercase tracking-widest text-slate-600 font-semibold block">
-                      Navigate
-                    </span>
-                  }
-                >
-                  {QUICK_ACTIONS.map(action => (
-                    <Command.Item
-                      key={action.id}
-                      value={action.label}
-                      onSelect={() => goTo(action.to)}
-                      className="
-                        flex items-center gap-3 px-3 py-2 rounded-lg mx-1
-                        cursor-pointer text-sm
-                        aria-selected:bg-white/8 aria-selected:text-slate-100
-                        text-slate-400 transition-colors
-                      "
-                    >
-                      <action.icon size={14} className="text-slate-500" />
-                      <span>{action.label}</span>
-                      <ArrowRight size={12} className="ml-auto text-slate-600" />
-                    </Command.Item>
-                  ))}
-                </Command.Group>
-
-                {/* Project search */}
-                {projects.length > 0 && (
-                  <Command.Group
-                    heading={
-                      <span className="px-4 py-1 text-[10px] uppercase tracking-widest text-slate-600 font-semibold block mt-1">
-                        Projects ({projects.length})
-                      </span>
-                    }
-                  >
-                    {projects.map(project => (
-                      <ProjectItem
-                        key={project.id}
-                        project={project}
-                        onSelect={() => goTo(`/project/${project.id}`)}
-                      />
-                    ))}
-                  </Command.Group>
-                )}
-              </Command.List>
-
-              {/* Footer hints */}
-              <div className="flex items-center gap-4 px-4 py-2.5 border-t border-white/5 text-[11px] text-slate-600">
-                <span><kbd className="font-mono">↑↓</kbd> navigate</span>
-                <span><kbd className="font-mono">↵</kbd> open</span>
-                <span><kbd className="font-mono">ESC</kbd> close</span>
-              </div>
-            </Command>
-          </motion.div>
-        </>
-      )}
-    </AnimatePresence>
+          {/* Footer hints */}
+          <div className="flex items-center gap-4 px-4 py-2.5 border-t border-white/5 text-[11px] text-slate-600">
+            <span><kbd className="font-mono">↑↓</kbd> navigate</span>
+            <span><kbd className="font-mono">↵</kbd> open</span>
+            <span><kbd className="font-mono">ESC</kbd> close</span>
+          </div>
+        </Command>
+        </div>
+    </>
   )
 }

@@ -105,11 +105,11 @@ export const KanbanCard = memo(function KanbanCard({
     opacity: isDragging ? 0.35 : 1,
   }
 
-  const typeCfg     = TYPE_CONFIG[item.type]
-  const priorityCfg = PRIORITY_CONFIG[item.priority]
-  const Icon        = PriorityIcon[item.priority]
+  const typeCfg     = TYPE_CONFIG[item.type]     ?? TYPE_CONFIG['task']
+  const priorityCfg = PRIORITY_CONFIG[item.priority] ?? PRIORITY_CONFIG['no_priority']
+  const Icon        = PriorityIcon[item.priority] ?? PriorityIcon['no_priority']
   const overdue     = isOverdue(item)
-  const statusCfg   = STATUS_CONFIG[item.status]
+  const statusCfg   = STATUS_CONFIG[item.status] ?? STATUS_CONFIG['todo']
 
   return (
     <div
@@ -134,18 +134,18 @@ export const KanbanCard = memo(function KanbanCard({
       }}
       className={`
         group relative rounded-lg border
-        bg-[#161b22] hover:bg-[#1c2129]
+        bg-white hover:bg-gray-50
         transition-all duration-150
         cursor-grab active:cursor-grabbing
         ${overdue
           ? 'border-red-500/30 hover:border-red-500/50'
-          : 'border-white/8 hover:border-white/15'
+          : 'border-gray-200 hover:border-gray-300'
         }
         ${isDragOverlay
-          ? 'shadow-2xl shadow-black/40 ring-1 ring-blue-500/30 scale-[1.02]'
-          : 'hover:shadow-lg hover:shadow-black/20'
+          ? 'shadow-2xl shadow-gray-300/50 ring-1 ring-blue-400/30 scale-[1.02]'
+          : 'hover:shadow-lg hover:shadow-gray-200/40'
         }
-        ${isDragging ? 'ring-1 ring-blue-500/20' : ''}
+        ${isDragging ? 'ring-1 ring-blue-400/20' : ''}
       `}
     >
       {/* ── Type color bar (left edge) ──────────────────────────────────────── */}
@@ -171,7 +171,7 @@ export const KanbanCard = memo(function KanbanCard({
             weight="bold"
             className={`${priorityCfg.color} flex-shrink-0 mt-0.5`}
           />
-          <h3 className="text-[13px] leading-[1.35] font-medium text-slate-200 line-clamp-2 min-w-0">
+          <h3 className="text-[13px] leading-[1.35] font-medium text-gray-800 line-clamp-2 min-w-0">
             {item.title}
           </h3>
         </div>
@@ -192,8 +192,8 @@ export const KanbanCard = memo(function KanbanCard({
             {/* Project code (visible in cross-project mode) */}
             {item.project_info && (
               <span className="
-                text-[10px] font-mono font-medium text-cyan-400/70
-                bg-cyan-500/8 px-1.5 py-0.5 rounded
+                text-[10px] font-mono font-medium text-cyan-600
+                bg-cyan-50 px-1.5 py-0.5 rounded
               ">
                 {(item.project_info as { code: string }).code}
               </span>
@@ -202,8 +202,8 @@ export const KanbanCard = memo(function KanbanCard({
             {/* Story points */}
             {item.story_points != null && (
               <span className="
-                text-[10px] font-mono font-bold text-slate-400
-                bg-white/5 px-1.5 py-0.5 rounded
+                text-[10px] font-mono font-bold text-gray-500
+                bg-gray-100 px-1.5 py-0.5 rounded
               ">
                 {item.story_points}pt
               </span>
@@ -214,8 +214,8 @@ export const KanbanCard = memo(function KanbanCard({
               <span className={`
                 flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded
                 ${overdue
-                  ? 'text-red-400 bg-red-500/10 font-medium'
-                  : 'text-slate-500 bg-white/3'
+                  ? 'text-red-600 bg-red-50 font-medium'
+                  : 'text-gray-500 bg-gray-100'
                 }
               `}>
                 <CalendarBlank size={10} weight="bold" />
@@ -227,13 +227,13 @@ export const KanbanCard = memo(function KanbanCard({
             {(item.labels ?? []).slice(0, 2).map((label) => (
               <span
                 key={label}
-                className="text-[10px] text-slate-500 bg-white/4 px-1.5 py-0.5 rounded truncate max-w-[80px]"
+                className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded truncate max-w-[80px]"
               >
                 {label}
               </span>
             ))}
             {(item.labels ?? []).length > 2 && (
-              <span className="text-[10px] text-slate-600">
+              <span className="text-[10px] text-gray-400">
                 +{(item.labels ?? []).length - 2}
               </span>
             )}
@@ -244,10 +244,10 @@ export const KanbanCard = memo(function KanbanCard({
             {item.assignee ? (
               <div
                 className="
-                  w-5 h-5 rounded-full bg-blue-500/20
+                  w-5 h-5 rounded-full bg-blue-100
                   flex items-center justify-center
-                  text-[8px] font-bold text-blue-400
-                  ring-1 ring-white/10
+                  text-[8px] font-bold text-blue-600
+                  ring-1 ring-blue-200
                 "
                 title={profileDisplayName(item.assignee as any)}
               >
@@ -256,13 +256,13 @@ export const KanbanCard = memo(function KanbanCard({
             ) : (
               <div
                 className="
-                  w-5 h-5 rounded-full bg-white/5
+                  w-5 h-5 rounded-full bg-gray-100
                   flex items-center justify-center
-                  ring-1 ring-white/5
+                  ring-1 ring-gray-200
                 "
                 title="Unassigned"
               >
-                <Lightning size={10} weight="bold" className="text-slate-700" />
+                <Lightning size={10} weight="bold" className="text-gray-400" />
               </div>
             )}
           </div>
@@ -270,7 +270,7 @@ export const KanbanCard = memo(function KanbanCard({
 
         {/* ── Blocked indicator ─────────────────────────────────────────────── */}
         {item.status === 'blocked' && (
-          <div className="flex items-center gap-1 mt-1.5 text-[10px] text-red-400 font-medium">
+          <div className="flex items-center gap-1 mt-1.5 text-[10px] text-red-600 font-medium">
             <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
             Blocked
           </div>

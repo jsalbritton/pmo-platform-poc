@@ -38,7 +38,7 @@ function renderInline(text: string): React.ReactNode[] {
     if (text[i] === '*' && text[i + 1] === '*') {
       const end = text.indexOf('**', i + 2)
       if (end !== -1) {
-        parts.push(<strong key={key++} className="font-semibold text-slate-100">{text.slice(i + 2, end)}</strong>)
+        parts.push(<strong key={key++} className="font-semibold text-gray-900">{text.slice(i + 2, end)}</strong>)
         i = end + 2
         continue
       }
@@ -48,7 +48,7 @@ function renderInline(text: string): React.ReactNode[] {
       const end = text.indexOf('`', i + 1)
       if (end !== -1) {
         parts.push(
-          <code key={key++} className="font-mono text-[0.85em] bg-white/8 rounded px-1 text-blue-300">
+          <code key={key++} className="font-mono text-[0.85em] bg-gray-100 rounded px-1 text-blue-600">
             {text.slice(i + 1, end)}
           </code>
         )
@@ -69,7 +69,7 @@ function renderInline(text: string): React.ReactNode[] {
 function RenderedDescription({ text }: { text: string }) {
   const lines = text.split('\n')
   return (
-    <div className="text-sm text-slate-300 leading-relaxed space-y-1.5">
+    <div className="text-sm text-gray-700 leading-relaxed space-y-1.5">
       {lines.map((line, idx) => (
         <p key={idx} className={line === '' ? 'h-2' : ''}>
           {line === '' ? null : renderInline(line)}
@@ -137,7 +137,7 @@ export function WorkItemDescription({ itemId, description }: WorkItemDescription
 
   return (
     <div className="px-5 py-3">
-      <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-600 mb-2">
+      <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-2">
         Description
       </div>
 
@@ -158,17 +158,17 @@ export function WorkItemDescription({ itemId, description }: WorkItemDescription
               onKeyDown={handleKeyDown}
               rows={5}
               className="
-                w-full min-h-[120px] bg-white/3 border border-blue-500/30 rounded-xl
-                px-3 py-2.5 text-sm text-slate-200 leading-relaxed resize-none
-                focus:outline-none focus:border-blue-500/60 focus:ring-1 focus:ring-blue-500/20
-                placeholder:text-slate-600
+                w-full min-h-[120px] bg-blue-50 border border-blue-200 rounded-xl
+                px-3 py-2.5 text-sm text-gray-800 leading-relaxed resize-none
+                focus:outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-100
+                placeholder:text-gray-400
                 transition-colors
               "
               placeholder="Describe what this work item entails, acceptance criteria, technical notes…
 
 Tip: **bold text**, `inline code`"
             />
-            <div className="text-[10px] text-slate-600 mt-1 px-1">
+            <div className="text-[10px] text-gray-400 mt-1 px-1">
               <kbd className="font-mono">{formatShortcut('mod+enter')}</kbd> save &nbsp;·&nbsp;
               <kbd className="font-mono">Esc</kbd> cancel
             </div>
@@ -183,12 +183,12 @@ Tip: **bold text**, `inline code`"
             onClick={() => setEditing(true)}
             className="
               w-full text-left rounded-xl px-3 py-2.5
-              hover:bg-white/3 transition-colors cursor-text
-              border border-transparent hover:border-white/5
+              hover:bg-gray-50 transition-colors cursor-text
+              border border-transparent hover:border-gray-100
             "
           >
             {isEmpty ? (
-              <span className="text-sm text-slate-600 italic leading-relaxed">
+              <span className="text-sm text-gray-400 italic leading-relaxed">
                 Add a description — acceptance criteria, technical notes, context…
               </span>
             ) : (

@@ -68,7 +68,7 @@ export function WorkItemMetaField({
   return (
     <div className={`group ${className}`}>
       {/* Label row */}
-      <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-600 mb-1">
+      <div className="text-[10px] font-semibold uppercase tracking-widest text-gray-500 mb-1">
         {label}
       </div>
 
@@ -90,10 +90,10 @@ export function WorkItemMetaField({
               onBlur={handleCommit}
               onKeyDown={handleKeyDown}
               className="
-                w-full bg-white/5 border border-blue-500/50 rounded-md
-                px-2 py-1 text-sm text-slate-100
-                focus:outline-none focus:ring-1 focus:ring-blue-500/50
-                placeholder:text-slate-600
+                w-full bg-blue-50 border border-blue-200 rounded-md
+                px-2 py-1 text-sm text-gray-900
+                focus:outline-none focus:ring-1 focus:ring-blue-300
+                placeholder:text-gray-400
               "
               placeholder={placeholder}
             />
@@ -110,21 +110,21 @@ export function WorkItemMetaField({
             className={`
               w-full text-left rounded-md px-2 py-1
               text-sm transition-colors
-              ${displayValue ? 'text-slate-200' : 'text-slate-600 italic'}
+              ${displayValue ? 'text-gray-800' : 'text-gray-400 italic'}
               ${isEditable
-                ? 'hover:bg-white/5 cursor-text group-hover:bg-white/3'
+                ? 'hover:bg-gray-50 cursor-text group-hover:bg-gray-100'
                 : 'cursor-default'
               }
             `}
           >
             {displayValue
-              ? <span>{displayValue}{suffix && <span className="text-slate-500 ml-1 text-xs">{suffix}</span>}</span>
+              ? <span>{displayValue}{suffix && <span className="text-gray-500 ml-1 text-xs">{suffix}</span>}</span>
               : <span>{placeholder}</span>
             }
             {isEditable && (
               <PencilSimple
                 size={10}
-                className="inline ml-1.5 text-slate-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                className="inline ml-1.5 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity"
                 weight="bold"
               />
             )}

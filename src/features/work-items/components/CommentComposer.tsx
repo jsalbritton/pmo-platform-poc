@@ -59,7 +59,7 @@ function MentionPicker({
       exit={  { opacity: 0, y: 6, scale: 0.97  }}
       className="
         absolute bottom-full left-0 mb-1.5 z-50
-        bg-[#161b22] border border-white/10 rounded-xl shadow-2xl
+        bg-white border border-gray-200 rounded-xl shadow-lg
         py-1 min-w-[200px] max-h-[200px] overflow-y-auto
       "
     >
@@ -69,15 +69,15 @@ function MentionPicker({
           onMouseDown={(e) => { e.preventDefault(); onSelect(p) }}
           className="
             w-full flex items-center gap-2.5 px-3 py-2
-            hover:bg-white/5 transition-colors text-left
+            hover:bg-gray-50 transition-colors text-left
           "
         >
           <div className="w-6 h-6 rounded-full bg-blue-600 flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0">
             {profileInitials(p)}
           </div>
           <div className="min-w-0">
-            <div className="text-sm text-slate-200 truncate">{profileDisplayName(p)}</div>
-            <div className="text-[10px] text-slate-500 truncate">{p.title ?? p.role}</div>
+            <div className="text-sm text-gray-900 truncate">{profileDisplayName(p)}</div>
+            <div className="text-[10px] text-gray-500 truncate">{p.title ?? p.role}</div>
           </div>
         </button>
       ))}
@@ -101,18 +101,18 @@ function ReplyPreview({
   return (
     <div className="
       flex items-start gap-2 px-3 py-2
-      bg-white/3 border-l-2 border-blue-500/50 rounded-r-lg
+      bg-blue-50 border-l-2 border-blue-300 rounded-r-lg
       mb-2
     ">
       <div className="flex-1 min-w-0">
-        <div className="text-[10px] font-semibold text-blue-400 mb-0.5">
+        <div className="text-[10px] font-semibold text-blue-600 mb-0.5">
           Replying to {profileDisplayName(comment.author)}
         </div>
-        <div className="text-[11px] text-slate-500 truncate">{previewText}</div>
+        <div className="text-[11px] text-gray-500 truncate">{previewText}</div>
       </div>
       <button
         onClick={onCancel}
-        className="text-slate-600 hover:text-slate-400 transition-colors flex-shrink-0 mt-0.5"
+        className="text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 mt-0.5"
       >
         <X size={12} weight="bold" />
       </button>
@@ -225,7 +225,7 @@ export function CommentComposer({
   const charsRemaining = MAX_CHARS - charsUsed
 
   return (
-    <div className="px-4 py-3 border-t border-white/5 flex-shrink-0">
+    <div className="px-4 py-3 border-t border-gray-100 flex-shrink-0">
       {replyTo && (
         <ReplyPreview comment={replyTo} onCancel={() => onCancelReply?.()} />
       )}
@@ -244,15 +244,15 @@ export function CommentComposer({
 
         <div className="
           flex items-end gap-2
-          bg-white/3 border border-white/8 rounded-xl
-          focus-within:border-blue-500/40 focus-within:bg-white/4
+          bg-gray-50 border border-gray-200 rounded-xl
+          focus-within:border-blue-300 focus-within:bg-blue-50
           transition-colors
         ">
           {/* @mention button */}
           <button
             type="button"
             onClick={() => { setBody((b) => b + '@'); textareaRef.current?.focus() }}
-            className="p-2.5 pb-2 text-slate-600 hover:text-blue-400 transition-colors flex-shrink-0"
+            className="p-2.5 pb-2 text-gray-500 hover:text-blue-600 transition-colors flex-shrink-0"
             title="Mention someone"
           >
             <At size={14} weight="bold" />
@@ -267,15 +267,15 @@ export function CommentComposer({
             placeholder={replyTo ? 'Write a reply…' : 'Add a comment…'}
             className="
               flex-1 bg-transparent resize-none overflow-hidden
-              text-sm text-slate-200 py-2.5
-              focus:outline-none placeholder:text-slate-600
+              text-sm text-gray-800 py-2.5
+              focus:outline-none placeholder:text-gray-400
               leading-relaxed
             "
           />
 
           <div className="flex items-end gap-1 p-1.5 flex-shrink-0">
             {showCharLimit && (
-              <span className={`text-[10px] tabular-nums mr-1 ${charsRemaining < 100 ? 'text-red-400' : 'text-slate-600'}`}>
+              <span className={`text-[10px] tabular-nums mr-1 ${charsRemaining < 100 ? 'text-red-600' : 'text-gray-500'}`}>
                 {charsRemaining}
               </span>
             )}
@@ -294,7 +294,7 @@ export function CommentComposer({
           </div>
         </div>
 
-        <div className="text-[10px] text-slate-700 mt-1.5 px-1">
+        <div className="text-[10px] text-gray-400 mt-1.5 px-1">
           <kbd className="font-mono">{formatShortcut('mod+enter')}</kbd> submit &nbsp;·&nbsp;
           <kbd className="font-mono">{formatShortcut('shift+enter')}</kbd> new line &nbsp;·&nbsp;
           <kbd className="font-mono">@</kbd> mention

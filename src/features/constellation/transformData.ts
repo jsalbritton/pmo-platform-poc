@@ -22,6 +22,7 @@ import type { Project, PulseCondition, PulseMomentum, PulseSignal } from '@/type
 
 /** Shape of data passed into each ProjectNode component via node.data */
 export interface ProjectNodeData {
+  [key: string]: unknown              // index signature for @xyflow/react Node<T>
   projectId: string
   name: string
   condition: PulseCondition | null
@@ -35,6 +36,7 @@ export interface ProjectNodeData {
 
 /** Shape of data passed into each RiskEdge component via edge.data */
 export interface RiskEdgeData {
+  [key: string]: unknown              // index signature for @xyflow/react Edge<T>
   exposureWeight: number             // 0.4 – 1.0, drives line thickness
   relationships: {
     same_pm: boolean

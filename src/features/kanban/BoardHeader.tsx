@@ -72,8 +72,8 @@ function Dropdown({
           absolute top-full mt-1.5 z-50
           ${align === 'right' ? 'right-0' : 'left-0'}
           min-w-[200px] max-h-[320px] overflow-y-auto
-          bg-[#1c2129] border border-white/10 rounded-xl
-          shadow-xl shadow-black/40
+          bg-white border border-gray-200 rounded-xl
+          shadow-xl shadow-gray-300/50
           py-1
         `}>
           {children}
@@ -99,8 +99,8 @@ function DropdownItem({
         w-full flex items-center gap-2 px-3 py-2 text-left
         text-xs transition-colors
         ${active
-          ? 'text-blue-400 bg-blue-500/10'
-          : 'text-slate-300 hover:bg-white/5'
+          ? 'text-blue-600 bg-blue-50'
+          : 'text-gray-700 hover:bg-gray-50'
         }
       `}
     >
@@ -121,10 +121,10 @@ function FilterChip({
   return (
     <span className="
       inline-flex items-center gap-1 px-2 py-0.5 rounded-md
-      bg-blue-500/10 border border-blue-500/20 text-[11px] text-blue-400
+      bg-blue-50 border border-blue-200 text-[11px] text-blue-600
     ">
       {label}
-      <button onClick={onRemove} className="hover:text-blue-300">
+      <button onClick={onRemove} className="hover:text-blue-500">
         <X size={10} weight="bold" />
       </button>
     </span>
@@ -154,7 +154,7 @@ function FilterSection<T extends string>({
 
   return (
     <div className="py-1">
-      <div className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] text-slate-600 uppercase tracking-wider font-medium">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] text-gray-400 uppercase tracking-wider font-medium">
         <Icon size={10} weight="bold" />
         {label}
       </div>
@@ -168,8 +168,8 @@ function FilterSection<T extends string>({
               w-full flex items-center gap-2 px-3 py-1.5 text-left
               text-xs transition-colors
               ${isSelected
-                ? 'text-blue-400 bg-blue-500/10'
-                : 'text-slate-300 hover:bg-white/5'
+                ? 'text-blue-600 bg-blue-50'
+                : 'text-gray-700 hover:bg-gray-50'
               }
             `}
           >
@@ -178,7 +178,7 @@ function FilterSection<T extends string>({
               transition-colors
               ${isSelected
                 ? 'bg-blue-500 border-blue-500'
-                : 'border-white/20 bg-transparent'
+                : 'border-gray-300 bg-transparent'
               }
             `}>
               {isSelected && (
@@ -308,7 +308,7 @@ export function BoardHeader({
   const currentGroupOption = GROUP_OPTIONS.find((g) => g.value === groupBy)!
 
   return (
-    <div className="flex-shrink-0 border-b border-white/5 bg-[#0d1117]/80 backdrop-blur-sm">
+    <div className="flex-shrink-0 border-b border-gray-200 bg-white/90 backdrop-blur-sm">
       {/* ── Row 1: Title + controls ────────────────────────────────────────── */}
       <div className="flex items-center gap-3 px-4 py-3">
         {/* Board icon + title */}
@@ -316,25 +316,25 @@ export function BoardHeader({
           <div className="p-1.5 rounded-lg bg-pmo-cyan/10">
             <Kanban size={18} weight="duotone" style={{ color: '#39c5cf' }} />
           </div>
-          <h1 className="text-base font-semibold text-slate-100 tracking-tight">
+          <h1 className="text-base font-semibold text-gray-900 tracking-tight">
             Sprint Board
           </h1>
         </div>
 
-        <div className="w-px h-5 bg-white/10" />
+        <div className="w-px h-5 bg-gray-200" />
 
         {/* Sprint scope selector */}
         <Dropdown
           trigger={
             <button className="
               flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
-              bg-white/5 border border-white/8 hover:border-white/15
-              text-xs text-slate-300 hover:text-slate-200
+              bg-gray-50 border border-gray-200 hover:border-gray-300
+              text-xs text-gray-700 hover:text-gray-900
               transition-colors
             ">
               <Lightning size={12} weight="bold" className={currentScopeOption.color} />
               {currentScopeOption.label}
-              <CaretDown size={10} weight="bold" className="text-slate-600" />
+              <CaretDown size={10} weight="bold" className="text-gray-400" />
             </button>
           }
         >
@@ -354,13 +354,13 @@ export function BoardHeader({
           trigger={
             <button className="
               flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
-              bg-white/5 border border-white/8 hover:border-white/15
-              text-xs text-slate-300 hover:text-slate-200
+              bg-gray-50 border border-gray-200 hover:border-gray-300
+              text-xs text-gray-700 hover:text-gray-900
               transition-colors
             ">
-              <currentGroupOption.icon size={12} weight="bold" className="text-slate-500" />
+              <currentGroupOption.icon size={12} weight="bold" className="text-gray-500" />
               Group: {currentGroupOption.label}
-              <CaretDown size={10} weight="bold" className="text-slate-600" />
+              <CaretDown size={10} weight="bold" className="text-gray-400" />
             </button>
           }
         >
@@ -383,8 +383,8 @@ export function BoardHeader({
               flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
               border transition-colors text-xs
               ${hasActiveFilter
-                ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
-                : 'bg-white/5 border-white/8 hover:border-white/15 text-slate-300 hover:text-slate-200'
+                ? 'bg-blue-50 border-blue-200 text-blue-600'
+                : 'bg-gray-50 border-gray-200 hover:border-gray-300 text-gray-700 hover:text-gray-900'
               }
             `}>
               <FunnelSimple size={12} weight="bold" />
@@ -415,7 +415,7 @@ export function BoardHeader({
                   return p ? `${p.code} · ${p.name}` : id.slice(0, 8)
                 }}
               />
-              <div className="h-px bg-white/5" />
+              <div className="h-px bg-gray-100" />
             </>
           )}
 
@@ -446,7 +446,7 @@ export function BoardHeader({
           {/* Assignee filters */}
           {teamMembers.length > 0 && (
             <>
-              <div className="h-px bg-white/5" />
+              <div className="h-px bg-gray-100" />
               <FilterSection
                 label="Assignee"
                 icon={User}
@@ -464,7 +464,7 @@ export function BoardHeader({
           {/* Label filters */}
           {allLabels.length > 0 && (
             <>
-              <div className="h-px bg-white/5" />
+              <div className="h-px bg-gray-100" />
               <FilterSection
                 label="Labels"
                 icon={Tag}
@@ -479,12 +479,12 @@ export function BoardHeader({
           {/* Clear all */}
           {hasActiveFilter && (
             <>
-              <div className="h-px bg-white/5" />
+              <div className="h-px bg-gray-100" />
               <button
                 onClick={onClearFilters}
                 className="
-                  w-full px-3 py-2 text-xs text-red-400
-                  hover:bg-red-500/10 transition-colors text-left
+                  w-full px-3 py-2 text-xs text-red-600
+                  hover:bg-red-50 transition-colors text-left
                 "
               >
                 Clear all filters
@@ -499,8 +499,8 @@ export function BoardHeader({
           className={`
             p-1.5 rounded-lg border transition-colors
             ${showSearch || filters.search
-              ? 'bg-blue-500/10 border-blue-500/30 text-blue-400'
-              : 'bg-white/5 border-white/8 hover:border-white/15 text-slate-400 hover:text-slate-300'
+              ? 'bg-blue-50 border-blue-200 text-blue-600'
+              : 'bg-gray-50 border-gray-200 hover:border-gray-300 text-gray-500 hover:text-gray-700'
             }
           `}
           title="Search board items (/)"
@@ -512,10 +512,10 @@ export function BoardHeader({
         <div className="flex-1" />
 
         {/* Item count */}
-        <div className="text-[11px] text-slate-500 tabular-nums">
+        <div className="text-[11px] text-gray-500 tabular-nums">
           {hasActiveFilter ? (
             <span>
-              <span className="text-blue-400 font-medium">{filteredCount}</span>
+              <span className="text-blue-600 font-medium">{filteredCount}</span>
               {' / '}
               {totalItems} items
             </span>
@@ -528,7 +528,7 @@ export function BoardHeader({
       {/* ── Row 2: Search bar (conditional, board-level) ──────────────────── */}
       {showSearch && (
         <div className="flex items-center gap-2 px-4 pb-3">
-          <MagnifyingGlass size={14} className="text-slate-600 flex-shrink-0" />
+          <MagnifyingGlass size={14} className="text-gray-400 flex-shrink-0" />
           <input
             type="text"
             value={filters.search}
@@ -537,13 +537,13 @@ export function BoardHeader({
             autoFocus
             className="
               flex-1 bg-transparent border-none outline-none
-              text-sm text-slate-200 placeholder:text-slate-600
+              text-sm text-gray-900 placeholder:text-gray-400
             "
           />
           {filters.search && (
             <button
               onClick={() => onFiltersChange({ ...filters, search: '' })}
-              className="text-slate-600 hover:text-slate-400"
+              className="text-gray-400 hover:text-gray-600"
             >
               <X size={14} weight="bold" />
             </button>
@@ -603,7 +603,7 @@ export function BoardHeader({
           )}
           <button
             onClick={onClearFilters}
-            className="text-[11px] text-slate-600 hover:text-red-400 transition-colors ml-1"
+            className="text-[11px] text-gray-400 hover:text-red-600 transition-colors ml-1"
           >
             Clear all
           </button>

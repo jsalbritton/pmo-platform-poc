@@ -26,10 +26,10 @@ import {
 // ─── FILE TYPE ICON ───────────────────────────────────────────────────────────
 
 function FileIcon({ mimeType }: { mimeType: string | null }) {
-  if (!mimeType) return <File size={16} className="text-slate-500" weight="duotone" />
-  if (mimeType === 'application/pdf')   return <FilePdf size={16} className="text-red-400"  weight="duotone" />
-  if (mimeType.startsWith('image/'))    return <Image   size={16} className="text-blue-400" weight="duotone" />
-  return <File size={16} className="text-slate-500" weight="duotone" />
+  if (!mimeType) return <File size={16} className="text-gray-500" weight="duotone" />
+  if (mimeType === 'application/pdf')   return <FilePdf size={16} className="text-red-600"  weight="duotone" />
+  if (mimeType.startsWith('image/'))    return <Image   size={16} className="text-blue-600" weight="duotone" />
+  return <File size={16} className="text-gray-500" weight="duotone" />
 }
 
 function formatBytes(bytes: number | null): string {
@@ -73,17 +73,17 @@ function AttachmentRow({
       initial={{ opacity: 0, y: -4 }}
       animate={{ opacity: deleting ? 0.4 : 1, y: 0 }}
       exit={  { opacity: 0, height: 0, marginBottom: 0 }}
-      className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/3 transition-colors group"
+      className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors group"
     >
       <FileIcon mimeType={attachment.mime_type} />
       <div className="flex-1 min-w-0">
         <button
           onClick={handleDownload}
-          className="text-sm text-slate-300 hover:text-blue-400 transition-colors truncate block text-left max-w-full"
+          className="text-sm text-gray-700 hover:text-blue-600 transition-colors truncate block text-left max-w-full"
         >
           {attachment.file_name}
         </button>
-        <div className="text-[10px] text-slate-600 mt-0.5">
+        <div className="text-[10px] text-gray-500 mt-0.5">
           {formatBytes(attachment.file_size)} · {relativeTime(attachment.created_at)}
           {attachment.uploader && ` · ${profileDisplayName(attachment.uploader)}`}
         </div>
@@ -93,7 +93,7 @@ function AttachmentRow({
         disabled={deleting}
         className="
           opacity-0 group-hover:opacity-100 transition-opacity
-          p-1.5 text-slate-600 hover:text-red-400 rounded-lg hover:bg-red-500/10
+          p-1.5 text-gray-400 hover:text-red-600 rounded-lg hover:bg-red-50
           disabled:cursor-not-allowed
         "
       >
@@ -181,8 +181,8 @@ function UploadZone({ workItemId, projectId }: UploadZoneProps) {
           border-2 border-dashed rounded-xl p-6 text-center cursor-pointer
           transition-all
           ${dragging
-            ? 'border-blue-500/60 bg-blue-500/5'
-            : 'border-white/10 hover:border-white/20 hover:bg-white/3'
+            ? 'border-blue-400 bg-blue-50'
+            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
           }
         `}
       >
@@ -195,29 +195,29 @@ function UploadZone({ workItemId, projectId }: UploadZoneProps) {
 
         {uploading ? (
           <div className="space-y-2">
-            <UploadSimple size={20} className="text-blue-400 mx-auto animate-pulse" weight="duotone" />
-            <div className="h-1 rounded-full bg-white/5 overflow-hidden">
+            <UploadSimple size={20} className="text-blue-600 mx-auto animate-pulse" weight="duotone" />
+            <div className="h-1 rounded-full bg-gray-100 overflow-hidden">
               <motion.div
                 className="h-full bg-blue-500 rounded-full"
                 animate={{ width: `${progress}%` }}
                 transition={{ duration: 0.3 }}
               />
             </div>
-            <p className="text-xs text-slate-500">Uploading…</p>
+            <p className="text-xs text-gray-500">Uploading…</p>
           </div>
         ) : (
           <>
-            <UploadSimple size={20} className="text-slate-600 mx-auto mb-2" weight="duotone" />
-            <p className="text-xs text-slate-500">
-              Drag & drop a file or <span className="text-blue-400">browse</span>
+            <UploadSimple size={20} className="text-gray-400 mx-auto mb-2" weight="duotone" />
+            <p className="text-xs text-gray-500">
+              Drag & drop a file or <span className="text-blue-600">browse</span>
             </p>
-            <p className="text-[10px] text-slate-700 mt-1">Max 50 MB</p>
+            <p className="text-[10px] text-gray-400 mt-1">Max 50 MB</p>
           </>
         )}
       </div>
 
       {error && (
-        <div className="flex items-center gap-2 mt-2 text-xs text-red-400">
+        <div className="flex items-center gap-2 mt-2 text-xs text-red-600">
           <Warning size={12} weight="fill" />
           {error}
         </div>
@@ -239,12 +239,12 @@ export function AttachmentPanel({ attachments, workItemId, projectId }: Attachme
     <div className="flex-1 overflow-y-auto px-4 py-4 flex flex-col gap-4">
       {attachments.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
-          <div className="w-10 h-10 rounded-2xl bg-white/3 border border-white/8 flex items-center justify-center">
-            <Paperclip size={20} weight="duotone" className="text-slate-600" />
+          <div className="w-10 h-10 rounded-2xl bg-gray-100 border border-gray-200 flex items-center justify-center">
+            <Paperclip size={20} weight="duotone" className="text-gray-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-400">No files attached</p>
-            <p className="text-xs text-slate-600 mt-0.5">Drag a file below or click to upload</p>
+            <p className="text-sm font-medium text-gray-600">No files attached</p>
+            <p className="text-xs text-gray-500 mt-0.5">Drag a file below or click to upload</p>
           </div>
         </div>
       ) : (

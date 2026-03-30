@@ -1,6 +1,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import * as Sentry from '@sentry/react'
 import { AuthProvider } from '@/hooks/useAuth'
+
+// Wraps <Routes> to report route changes as Sentry navigation spans.
+// When a user navigates from /portfolio → /project/123, Sentry records a
+// "navigation" transaction named "/project/:id" (parameterised, not raw ID).
+// This gives clean performance data in the Sentry dashboard without PII leakage.
+const SentryRoutes = Sentry.withSentryReactRouterV6Routing(Routes)
+import { AppErrorBoundary } from '@/components/ErrorBoundary'
 import AppShell    from '@/components/AppShell'
 import AuthGuard   from '@/components/AuthGuard'
 import CommandPalette from '@/components/CommandPalette'
@@ -9,6 +17,7 @@ import Portfolio   from '@/routes/Portfolio'
 import Project     from '@/routes/Project'
 import Board       from '@/routes/Board'
 import Resources   from '@/routes/Resources'
+import Approvals   from '@/routes/Approvals'
 import AIEngine    from '@/routes/AIEngine'
 import Settings    from '@/routes/Settings'
 // S0 version (D3 canvas): import Constellation from '@/routes/Constellation'
@@ -50,6 +59,7 @@ export default function App() {
   }, [handleKeyDown])
 
   return (
+    <AppErrorBoundary>
     <BrowserRouter>
       {/* AuthProvider must wrap everything so useAuth() works in all routes */}
       <AuthProvider>
@@ -60,7 +70,7 @@ export default function App() {
           onClose={() => setCommandOpen(false)}
         />
 
-        <Routes>
+        <SentryRoutes>
           {/* ── Public route — no auth required ────────────────────────── */}
           <Route path="/login" element={<Login />} />
 
@@ -81,6 +91,7 @@ export default function App() {
             <Route path="project/:id"   element={<Project />} />
             <Route path="board/:id"     element={<Board />} />
             <Route path="resources"     element={<Resources />} />
+            <Route path="approvals"     element={<Approvals />} />
             <Route path="ai"            element={<AIEngine />} />
 
             {/* Settings — admin only in production; open during POC */}
@@ -88,9 +99,10 @@ export default function App() {
 
             <Route path="*"             element={<Navigate to="/portfolio" replace />} />
           </Route>
-        </Routes>
+        </SentryRoutes>
 
       </AuthProvider>
     </BrowserRouter>
+    </AppErrorBoundary>
   )
 }

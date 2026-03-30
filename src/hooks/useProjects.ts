@@ -17,7 +17,13 @@
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { db } from '@/lib/supabase'
-import type { Project, ProjectStatus, PortfolioStats } from '@/types'
+import type { Project, ProjectStatus, PortfolioStats, Profile, Sprint, Risk } from '@/types'
+
+// ─── ENRICHED PROJECT TYPE ──────────────────────────────────────────────────
+// Supabase's nested select returns owner as an object when using FK join syntax.
+export interface ProjectWithOwner extends Project {
+  owner: Pick<Profile, 'id' | 'display_name' | 'full_name' | 'avatar_url'> | null
+}
 
 // ─── QUERY KEYS ───────────────────────────────────────────────────────────────
 
@@ -42,12 +48,15 @@ export interface ProjectFilters {
 
 // ─── FETCH FUNCTIONS ─────────────────────────────────────────────────────────
 
-async function fetchProjects(filters: ProjectFilters = {}): Promise<Project[]> {
+async function fetchProjects(filters: ProjectFilters = {}): Promise<ProjectWithOwner[]> {
   const { status, ownerId, programId, search, page = 1, pageSize = 100 } = filters
 
+  // Join profiles via owner_id FK to get owner display_name + initials.
+  // Supabase syntax: "owner:profiles!owner_id(id, display_name, full_name, avatar_url)"
+  // This returns an `owner` object nested inside each project row.
   let query = db
     .from('projects')
-    .select('*')
+    .select('*, owner:profiles!owner_id(id, display_name, full_name, avatar_url)')
     .order('health_score', { ascending: true, nullsFirst: false })  // worst health first
     .range((page - 1) * pageSize, page * pageSize - 1)
 
@@ -65,18 +74,18 @@ async function fetchProjects(filters: ProjectFilters = {}): Promise<Project[]> {
   const { data, error } = await query
 
   if (error) throw new Error(`Failed to fetch projects: ${error.message}`)
-  return (data as Project[]) ?? []
+  return (data as ProjectWithOwner[]) ?? []
 }
 
-async function fetchProjectById(id: string): Promise<Project> {
+async function fetchProjectById(id: string): Promise<ProjectWithOwner> {
   const { data, error } = await db
     .from('projects')
-    .select('*')
+    .select('*, owner:profiles!owner_id(id, display_name, full_name, avatar_url)')
     .eq('id', id)
     .single()
 
   if (error) throw new Error(`Failed to fetch project ${id}: ${error.message}`)
-  return data as Project
+  return data as ProjectWithOwner
 }
 
 async function fetchPortfolioStats(): Promise<PortfolioStats> {
@@ -87,12 +96,11 @@ async function fetchPortfolioStats(): Promise<PortfolioStats> {
   if (error) throw new Error(`Failed to fetch portfolio stats: ${error.message}`)
 
   const rows = data as Pick<Project, 'status' | 'health_score'>[]
-  const total = rows.length
 
-  // Exclude completed/cancelled/on_hold from health scoring — they are terminal states
-  const activeRows = rows.filter(r =>
-    r.status !== 'completed' && r.status !== 'cancelled' && r.status !== 'on_hold'
-  )
+  // Exclude parked statuses from health scoring — they are terminal / not-yet-active states.
+  // Must match PARKED_STATUSES in Portfolio.tsx so sidebar & KPI tiles agree.
+  const PARKED = new Set(['completed', 'cancelled', 'on_hold', 'planning'])
+  const activeRows = rows.filter(r => !PARKED.has(r.status))
 
   const scores = activeRows.map(r => r.health_score ?? 50)
   const avgHealthScore = scores.length > 0
@@ -108,10 +116,10 @@ async function fetchPortfolioStats(): Promise<PortfolioStats> {
   //   health 40–69  → At Risk   (amber)
   //   health < 40   → Critical  (red)
   //
-  // Completed/cancelled/on_hold projects are excluded — they are terminal states
+  // Parked projects are excluded — they are terminal / pre-active states
   // and shouldn't inflate the at-risk/critical counts.
   return {
-    total,
+    total: activeRows.length,
     onTrack:  activeRows.filter(r => (r.health_score ?? 50) >= 70).length,
     atRisk:   activeRows.filter(r => { const h = r.health_score ?? 50; return h >= 40 && h < 70 }).length,
     critical: activeRows.filter(r => (r.health_score ?? 50) < 40).length,
@@ -195,5 +203,131 @@ export function useUpdateProjectStatus() {
       queryClient.invalidateQueries({ queryKey: projectKeys.lists() })
       queryClient.invalidateQueries({ queryKey: projectKeys.stats() })
     },
+  })
+}
+
+// ─── PROJECT DETAIL HOOKS ────────────────────────────────────────────────────
+
+/** Work item status counts for a project */
+export interface WorkItemCounts {
+  total: number
+  todo: number
+  in_progress: number
+  done: number
+  blocked: number
+  overdue: number
+  totalPoints: number
+  completedPoints: number
+}
+
+export function useProjectWorkItemCounts(projectId: string) {
+  return useQuery({
+    queryKey: ['projects', projectId, 'work-item-counts'],
+    queryFn: async (): Promise<WorkItemCounts> => {
+      const { data, error } = await db
+        .from('work_items')
+        .select('status, story_points, due_date')
+        .eq('project_id', projectId)
+
+      if (error) throw new Error(error.message)
+      const items = data ?? []
+      const now = new Date().toISOString().slice(0, 10)
+      return {
+        total:           items.length,
+        todo:            items.filter(i => i.status === 'todo' || i.status === 'backlog').length,
+        in_progress:     items.filter(i => i.status === 'in_progress').length,
+        done:            items.filter(i => i.status === 'done' || i.status === 'completed').length,
+        blocked:         items.filter(i => i.status === 'blocked').length,
+        overdue:         items.filter(i => i.due_date && i.due_date < now && i.status !== 'done' && i.status !== 'completed').length,
+        totalPoints:     items.reduce((s, i) => s + (i.story_points ?? 0), 0),
+        completedPoints: items.filter(i => i.status === 'done' || i.status === 'completed').reduce((s, i) => s + (i.story_points ?? 0), 0),
+      }
+    },
+    enabled: Boolean(projectId),
+  })
+}
+
+export function useProjectSprints(projectId: string) {
+  return useQuery({
+    queryKey: ['projects', projectId, 'sprints'],
+    queryFn: async (): Promise<Sprint[]> => {
+      const { data, error } = await db
+        .from('sprints')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('sprint_number', { ascending: false })
+        .limit(10)
+
+      if (error) throw new Error(error.message)
+      return (data as Sprint[]) ?? []
+    },
+    enabled: Boolean(projectId),
+  })
+}
+
+// ─── COMPLETE SPRINT ─────────────────────────────────────────────────────────
+
+/**
+ * useCompleteSprint — marks an active sprint as completed.
+ *
+ * Optimistic update: flips the sprint's status in cache immediately so the
+ * UI responds before the network round-trip. Rolls back on error. Invalidates
+ * both the sprints list and the project detail on settle.
+ *
+ * Pattern mirrors useUpdateWorkItem for consistency.
+ */
+export function useCompleteSprint(projectId: string) {
+  const queryClient = useQueryClient()
+  const sprintKey   = ['projects', projectId, 'sprints'] as const
+
+  return useMutation({
+    mutationFn: async (sprintId: string) => {
+      const { error } = await db
+        .from('sprints')
+        .update({ status: 'completed' })
+        .eq('id', sprintId)
+
+      if (error) throw new Error(`Failed to complete sprint: ${error.message}`)
+    },
+
+    onMutate: async (sprintId) => {
+      await queryClient.cancelQueries({ queryKey: sprintKey })
+      const snapshot = queryClient.getQueryData<Sprint[]>(sprintKey)
+
+      queryClient.setQueryData<Sprint[]>(sprintKey, (prev) =>
+        prev?.map((s) =>
+          s.id === sprintId ? { ...s, status: 'completed' as const } : s
+        )
+      )
+
+      return { snapshot }
+    },
+
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.snapshot) queryClient.setQueryData(sprintKey, ctx.snapshot)
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: sprintKey })
+      queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) })
+    },
+  })
+}
+
+export function useProjectRisks(projectId: string) {
+  return useQuery({
+    queryKey: ['projects', projectId, 'risks'],
+    queryFn: async (): Promise<Risk[]> => {
+      const { data, error } = await db
+        .from('risks')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('risk_score', { ascending: false, nullsFirst: false })
+        .limit(20)
+
+      if (error) throw new Error(error.message)
+      return (data as Risk[]) ?? []
+    },
+    enabled: Boolean(projectId),
   })
 }

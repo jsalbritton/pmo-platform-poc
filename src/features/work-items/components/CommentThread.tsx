@@ -34,12 +34,12 @@ function CommentBody({ text }: { text: string }) {
   // Highlight @Name patterns
   const parts = text.split(/(@\w[\w\s-]*\w|\n)/)
   return (
-    <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">
+    <p className="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap">
       {parts.map((part, i) => {
         if (part === '\n') return <br key={i} />
         if (part.startsWith('@')) {
           return (
-            <span key={i} className="text-blue-400 bg-blue-500/10 rounded px-0.5 font-medium">
+            <span key={i} className="text-blue-600 bg-blue-50 rounded px-0.5 font-medium">
               {part}
             </span>
           )
@@ -79,8 +79,8 @@ function CommentCard({
     >
       {/* Avatar */}
       <div className="
-        w-7 h-7 rounded-full bg-slate-700 flex-shrink-0
-        flex items-center justify-center text-[10px] font-bold text-slate-400
+        w-7 h-7 rounded-full bg-gray-200 flex-shrink-0
+        flex items-center justify-center text-[10px] font-bold text-gray-700
         mt-0.5
       ">
         {profileInitials(comment.author)}
@@ -90,14 +90,14 @@ function CommentCard({
       <div className="flex-1 min-w-0">
         {/* Header */}
         <div className="flex items-baseline gap-2 mb-1">
-          <span className="text-xs font-semibold text-slate-200">
+          <span className="text-xs font-semibold text-gray-900">
             {profileDisplayName(comment.author)}
           </span>
-          <span className="text-[10px] text-slate-600">
+          <span className="text-[10px] text-gray-500">
             {relativeTime(comment.created_at)}
           </span>
           {comment.is_edited && (
-            <span className="text-[10px] text-slate-700 italic">edited</span>
+            <span className="text-[10px] text-gray-400 italic">edited</span>
           )}
         </div>
 
@@ -109,7 +109,7 @@ function CommentCard({
           {!isReply && (
             <button
               onClick={() => onReply(comment)}
-              className="flex items-center gap-1 text-[11px] text-slate-600 hover:text-blue-400 transition-colors"
+              className="flex items-center gap-1 text-[11px] text-gray-500 hover:text-blue-600 transition-colors"
             >
               <ArrowBendUpLeft size={11} weight="bold" />
               Reply
@@ -119,7 +119,7 @@ function CommentCard({
             <button
               onClick={() => deleteComment(comment.id)}
               disabled={deleting}
-              className="flex items-center gap-1 text-[11px] text-slate-700 hover:text-red-400 transition-colors"
+              className="flex items-center gap-1 text-[11px] text-gray-400 hover:text-red-600 transition-colors"
             >
               <Trash size={11} weight="bold" />
               Delete
@@ -152,12 +152,12 @@ export function CommentThread({
     return (
       <div className="flex-1 flex flex-col">
         <div className="flex-1 flex flex-col items-center justify-center gap-3 py-12 text-center px-6">
-          <div className="w-10 h-10 rounded-2xl bg-white/3 border border-white/8 flex items-center justify-center">
-            <ChatCircle size={20} weight="duotone" className="text-slate-600" />
+          <div className="w-10 h-10 rounded-2xl bg-gray-100 border border-gray-200 flex items-center justify-center">
+            <ChatCircle size={20} weight="duotone" className="text-gray-400" />
           </div>
           <div>
-            <p className="text-sm font-medium text-slate-400">No comments yet</p>
-            <p className="text-xs text-slate-600 mt-0.5">
+            <p className="text-sm font-medium text-gray-600">No comments yet</p>
+            <p className="text-xs text-gray-500 mt-0.5">
               Start the conversation — questions, updates, blockers.
             </p>
           </div>
@@ -195,7 +195,7 @@ export function CommentThread({
 
               {/* Replies */}
               {(comment.replies ?? []).length > 0 && (
-                <div className="mt-2 space-y-3 border-l border-white/5 pl-0.5">
+                <div className="mt-2 space-y-3 border-l border-gray-100 pl-0.5">
                   <AnimatePresence initial={false}>
                     {comment.replies!.map((reply) => (
                       <CommentCard

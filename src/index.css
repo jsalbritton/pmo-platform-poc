@@ -1,45 +1,264 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════════════════════
+   CSS @property registrations — enables GPU-interpolated animations
+   on custom properties (gradient positions, colors, opacity values).
+   Requires Chrome 111+ / Edge 111+ / Safari 16.4+.
+   Enterprise Edge/Chrome environment: fully supported.
+   ═══════════════════════════════════════════════════════════════════ */
+
+@property --mesh-x1 {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 15%;
+}
+@property --mesh-y1 {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 25%;
+}
+@property --mesh-x2 {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 80%;
+}
+@property --mesh-y2 {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 70%;
+}
+@property --mesh-x3 {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 50%;
+}
+@property --mesh-y3 {
+  syntax: '<percentage>';
+  inherits: false;
+  initial-value: 50%;
+}
+@property --shimmer-angle {
+  syntax: '<angle>';
+  inherits: false;
+  initial-value: 0deg;
+}
+@property --glow-opacity {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 0.15;
+}
+@property --health-hue {
+  syntax: '<number>';
+  inherits: false;
+  initial-value: 145;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Base CSS design tokens — Tailwind v3 HSL consumption format.
+   Note: supplementary OKLCH tokens added below for raw CSS use.
+   ═══════════════════════════════════════════════════════════════════ */
+
 @layer base {
   :root {
-    /* shadcn/ui CSS variables — dark theme matching Sprint 0 vision */
-    --background: 217 33% 7%;
-    --foreground: 210 40% 92%;
-    --card: 217 33% 9%;
-    --card-foreground: 210 40% 92%;
-    --popover: 217 33% 11%;
-    --popover-foreground: 210 40% 92%;
-    --primary: 213 93% 68%;
-    --primary-foreground: 222 47% 11%;
-    --secondary: 217 33% 13%;
-    --secondary-foreground: 210 40% 92%;
-    --muted: 217 33% 13%;
-    --muted-foreground: 215 20% 55%;
-    --accent: 213 93% 68%;
-    --accent-foreground: 222 47% 11%;
+    /*
+     * Color system — Alcon-derived navy-dominant dark theme.
+     * Foundation palette: Alcon.com (deep navy → bright cyan spectrum).
+     * Navy hue 265° — authoritative, precise, premium.
+     * All Tailwind utility classes consume these HSL tokens.
+     */
+    --background: 220 20% 97%;        /* light off-white (#f4f6f9)    */
+    --foreground: 220 20% 10%;        /* near-black for readability   */
+    --card: 225 60% 12%;              /* navy card surface            */
+    --card-foreground: 210 40% 93%;
+    --popover: 225 55% 14%;           /* navy overlay                 */
+    --popover-foreground: 210 40% 93%;
+    --primary: 200 100% 60%;          /* Alcon sky blue #33BBFF       */
+    --primary-foreground: 225 100% 8%;
+    --secondary: 225 50% 15%;         /* raised navy surface          */
+    --secondary-foreground: 210 25% 80%;
+    --muted: 225 40% 15%;
+    --muted-foreground: 210 15% 50%;  /* desaturated steel            */
+    --accent: 200 100% 60%;           /* bright cyan accent           */
+    --accent-foreground: 225 100% 8%;
     --destructive: 4 86% 69%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217 33% 17%;
-    --input: 217 33% 17%;
-    --ring: 213 93% 68%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 225 40% 18%;            /* navy-tinted borders          */
+    --input: 225 40% 18%;
+    --ring: 200 100% 60%;
     --radius: 0.5rem;
 
-    /* Platform layer color tokens */
-    --pmo-blue: 213 93% 68%;      /* #58a6ff  — Frontend */
-    --pmo-green: 142 71% 55%;     /* #3fb950  — Database */
+    /* Alcon palette — direct hex-to-HSL conversions */
+    --alcon-navy:         225 100% 29%;    /* #003595 — primary brand     */
+    --alcon-deep-navy:    228 73% 31%;     /* #143489 — deep surfaces     */
+    --alcon-hero-blue:    218 55% 46%;     /* #2D64BE — gradient high     */
+    --alcon-medium-blue:  219 80% 37%;     /* #134EAB — section bg        */
+    --alcon-button-blue:  224 52% 48%;     /* #3860BE — CTA buttons       */
+    --alcon-sky-blue:     210 68% 65%;     /* #6AAAE4 — links, accents    */
+    --alcon-bright-cyan:  200 100% 60%;    /* #33BBFF — energy accent     */
+    --alcon-ice-blue:     200 100% 95%;    /* #E5F5FF — light mode bg     */
+    --alcon-near-white:   220 50% 97%;     /* #F5F8FD — light cards       */
+    --alcon-teal:         159 55% 44%;     /* #32AE88 — healthy/positive  */
+    --alcon-gold:         36 54% 51%;      /* #C8963E — premium/milestone */
+
+    /* Platform domain color tokens (HSL for Tailwind consumption) */
+    --pmo-blue: 200 100% 60%;     /* Alcon bright cyan — Frontend */
+    --pmo-green: 159 55% 44%;     /* Alcon teal — Database / healthy */
     --pmo-violet: 265 89% 78%;    /* #bc8cff  — ML/AI */
-    --pmo-amber: 43 72% 50%;      /* #d29922  — Infrastructure */
-    --pmo-red: 4 86% 69%;         /* #f85149  — Security */
-    --pmo-cyan: 186 57% 52%;      /* #39c5cf  — Real-time */
+    --pmo-amber: 36 54% 51%;      /* Alcon gold — Infrastructure */
+    --pmo-red: 4 86% 69%;         /* #f85149  — Security / critical */
+    --pmo-cyan: 200 100% 60%;     /* Alcon bright cyan — Real-time */
 
     /* Sidebar width — referenced in layout components */
     --sidebar-width: 256px;
+
+    /* ─────────────────────────────────────────────────────────────
+       OKLCH supplementary tokens — Alcon palette in perceptually
+       uniform color space. These drive gradients, glows, shadows,
+       and animated backgrounds. OKLCH gradients never go muddy —
+       they stay vivid across the full spectrum.
+
+       Source of truth: Alcon.com color extraction (03/29/2026).
+       ───────────────────────────────────────────────────────────── */
+
+    /* ── Alcon Primary Navy Spectrum ── */
+    --ok-navy:          oklch(32% 0.155 265);       /* #003595 — sidebar, header, brand */
+    --ok-navy-dim:      oklch(32% 0.155 265 / 0.15);
+    --ok-navy-glow:     oklch(32% 0.155 265 / 0.30);
+
+    --ok-deep-navy:     oklch(30% 0.145 265);       /* #143489 — footer, deep surfaces */
+
+    --ok-hero-blue:     oklch(48% 0.145 260);       /* #2D64BE — gradient high, active */
+    --ok-hero-blue-dim: oklch(48% 0.145 260 / 0.12);
+
+    --ok-medium-blue:   oklch(42% 0.150 262);       /* #134EAB — section backgrounds */
+
+    --ok-button-blue:   oklch(48% 0.140 265);       /* #3860BE — CTA, primary actions */
+    --ok-button-blue-glow: oklch(48% 0.140 265 / 0.25);
+
+    /* ── Alcon Accent Spectrum ── */
+    --ok-sky:           oklch(70% 0.110 245);       /* #6AAAE4 — links, secondary */
+    --ok-sky-dim:       oklch(70% 0.110 245 / 0.12);
+    --ok-sky-glow:      oklch(70% 0.110 245 / 0.25);
+
+    --ok-cyan:          oklch(75% 0.140 230);       /* #33BBFF — energy, ML, highlights */
+    --ok-cyan-dim:      oklch(75% 0.140 230 / 0.12);
+    --ok-cyan-glow:     oklch(75% 0.140 230 / 0.25);
+
+    /* ── Alcon Semantic Colors ── */
+    --ok-teal:          oklch(65% 0.130 165);       /* #32AE88 — healthy, positive */
+    --ok-teal-dim:      oklch(65% 0.130 165 / 0.10);
+    --ok-teal-glow:     oklch(65% 0.130 165 / 0.22);
+
+    --ok-gold:          oklch(70% 0.125 75);        /* #C8963E — premium, milestones */
+    --ok-gold-dim:      oklch(70% 0.125 75 / 0.10);
+    --ok-gold-glow:     oklch(70% 0.125 75 / 0.22);
+
+    --ok-red:           oklch(62% 0.205 25);        /* critical / destructive */
+    --ok-red-dim:       oklch(62% 0.205 25 / 0.10);
+    --ok-red-glow:      oklch(62% 0.205 25 / 0.22);
+
+    --ok-violet:        oklch(72% 0.185 285);       /* ML/AI accent */
+    --ok-violet-dim:    oklch(72% 0.185 285 / 0.10);
+    --ok-violet-glow:   oklch(72% 0.185 285 / 0.22);
+
+    /* ── Alcon Light Mode Surfaces ── */
+    --ok-ice-blue:      oklch(96% 0.020 240);       /* #E5F5FF — light content bg */
+    --ok-near-white:    oklch(98% 0.008 260);       /* #F5F8FD — light card bg */
+
+    /* ── Alcon Blue Surfaces (saturated, not dark) ── */
+    --ok-bg:            oklch(32% 0.155 265);       /* Alcon primary blue #003595 */
+    --ok-surface:       oklch(28% 0.145 265);       /* slightly deeper for sidebar */
+    --ok-overlay:       oklch(36% 0.140 265);       /* elevated overlay */
+
+    /* ── Legacy aliases (keeps existing component refs working) ── */
+    --ok-blue:          oklch(70% 0.110 245);       /* maps to Alcon sky blue */
+    --ok-blue-dim:      oklch(70% 0.110 245 / 0.12);
+    --ok-blue-glow:     oklch(70% 0.110 245 / 0.25);
+    --ok-green:         oklch(65% 0.130 165);       /* maps to Alcon teal */
+    --ok-green-dim:     oklch(65% 0.130 165 / 0.10);
+    --ok-green-glow:    oklch(65% 0.130 165 / 0.22);
+    --ok-amber:         oklch(70% 0.125 75);        /* maps to Alcon gold */
+    --ok-amber-dim:     oklch(70% 0.125 75 / 0.10);
+    --ok-amber-glow:    oklch(70% 0.125 75 / 0.22);
+
+    /* ── Alcon Hero Gradient ── */
+    --alcon-gradient-top:    oklch(48% 0.145 260);
+    --alcon-gradient-bottom: oklch(30% 0.145 265);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Keyframe animations
+   ═══════════════════════════════════════════════════════════════════ */
+
+/*
+ * Mesh drift — animates CSS @property gradient positions.
+ * Uses GPU interpolation: no JavaScript, hardware-accelerated,
+ * 60fps minimum, jank-free even on busy UI threads.
+ */
+@keyframes mesh-drift {
+  0%   { --mesh-x1: 15%; --mesh-y1: 25%; --mesh-x2: 80%; --mesh-y2: 70%; --mesh-x3: 50%; --mesh-y3: 50%; }
+  20%  { --mesh-x1: 65%; --mesh-y1: 15%; --mesh-x2: 20%; --mesh-y2: 75%; --mesh-x3: 70%; --mesh-y3: 30%; }
+  40%  { --mesh-x1: 80%; --mesh-y1: 60%; --mesh-x2: 15%; --mesh-y2: 25%; --mesh-x3: 30%; --mesh-y3: 70%; }
+  60%  { --mesh-x1: 40%; --mesh-y1: 80%; --mesh-x2: 75%; --mesh-y2: 20%; --mesh-x3: 80%; --mesh-y3: 60%; }
+  80%  { --mesh-x1: 20%; --mesh-y1: 60%; --mesh-x2: 60%; --mesh-y2: 85%; --mesh-x3: 25%; --mesh-y3: 35%; }
+  100% { --mesh-x1: 15%; --mesh-y1: 25%; --mesh-x2: 80%; --mesh-y2: 70%; --mesh-x3: 50%; --mesh-y3: 50%; }
+}
+
+/* Shimmer sweep — for card loading states and gradient buttons */
+@keyframes shimmer-sweep {
+  0%   { --shimmer-angle: -45deg; }
+  100% { --shimmer-angle: 315deg; }
+}
+
+/* Subtle pulse for health indicators */
+@keyframes health-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
+}
+
+/* Glow breathe — for critical/warning elements */
+@keyframes glow-breathe {
+  0%, 100% { --glow-opacity: 0.12; }
+  50%       { --glow-opacity: 0.30; }
+}
+
+/* Count up — handled by JS (AnimatedCount), keyframe here for pure CSS fallback */
+@keyframes count-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Fade in up — entry animation for cards and panels */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Slide in right — for detail panels */
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(16px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Slide in from left — for timeline entries and horizontal sequences */
+@keyframes slide-in-left {
+  from { opacity: 0; transform: translateX(-10px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+/* Rotate for loading spinners */
+@keyframes spin-slow {
+  to { transform: rotate(360deg); }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Base element styles
+   ═══════════════════════════════════════════════════════════════════ */
 
 @layer base {
   * {
@@ -48,59 +267,561 @@
 
   html {
     scroll-behavior: smooth;
+    /* Enable subpixel antialiasing for premium font rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern" 1, "liga" 1, "calt" 1, "ss01" 1;
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
   }
 
-  /* Scrollbar styling — dark theme */
-  ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    @apply bg-transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    @apply bg-border rounded-full;
+  /* Scrollbar styling — premium dark thin scrollbar */
+  ::-webkit-scrollbar        { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track  { background: transparent; }
+  ::-webkit-scrollbar-thumb  {
+    background: oklch(75% 0.015 265);
+    border-radius: 99px;
   }
   ::-webkit-scrollbar-thumb:hover {
-    @apply bg-muted-foreground;
+    background: oklch(60% 0.025 260);
+  }
+  * { scrollbar-width: thin; scrollbar-color: oklch(75% 0.015 265) transparent; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Utility classes — design system extensions
+   ═══════════════════════════════════════════════════════════════════ */
+
+@layer utilities {
+
+  /* ─── Animated mesh gradient backgrounds ────────────────────────
+     Three radial gradient "orbs" whose positions drift via @property.
+     GPU-interpolated — no JS, no RAF loop, buttery smooth.
+     Use on dark backgrounds (sidebar, app shell, dark page regions).
+  ─────────────────────────────────────────────────────────────── */
+
+  /* ─── Alcon Navy Mesh ─────────────────────────────────────────
+     Three orbs in the Alcon navy→cyan spectrum. Deep navy base
+     with bright cyan energy sparks. The navy dominates (Alcon
+     design principle: 70%+ navy), cyan used sparingly for energy.
+  ─────────────────────────────────────────────────────────────── */
+
+  .mesh-bg {
+    animation: mesh-drift 40s ease-in-out infinite;
+    background:
+      radial-gradient(ellipse 65% 55% at var(--mesh-x1) var(--mesh-y1),
+        var(--ok-hero-blue-dim) 0%, transparent 65%),
+      radial-gradient(ellipse 55% 65% at var(--mesh-x2) var(--mesh-y2),
+        var(--ok-cyan-dim) 0%, transparent 65%),
+      radial-gradient(ellipse 45% 50% at var(--mesh-x3) var(--mesh-y3),
+        var(--ok-teal-dim) 0%, transparent 60%);
+  }
+
+  /* Subtle mesh for light-mode content areas — ice blue tints */
+  .mesh-bg-subtle {
+    animation: mesh-drift 55s ease-in-out infinite;
+    background:
+      radial-gradient(ellipse 70% 55% at var(--mesh-x1) var(--mesh-y1),
+        oklch(48% 0.145 260 / 0.04) 0%, transparent 65%),
+      radial-gradient(ellipse 60% 65% at var(--mesh-x2) var(--mesh-y2),
+        oklch(75% 0.140 230 / 0.03) 0%, transparent 65%),
+      radial-gradient(ellipse 50% 50% at var(--mesh-x3) var(--mesh-y3),
+        oklch(65% 0.130 165 / 0.025) 0%, transparent 60%);
+  }
+
+  /* Critical-state mesh — red/gold drift for degraded portfolio */
+  .mesh-bg-critical {
+    animation: mesh-drift 30s ease-in-out infinite;
+    background:
+      radial-gradient(ellipse 65% 55% at var(--mesh-x1) var(--mesh-y1),
+        oklch(62% 0.205 25 / 0.09) 0%, transparent 65%),
+      radial-gradient(ellipse 55% 65% at var(--mesh-x2) var(--mesh-y2),
+        oklch(70% 0.125 75 / 0.06) 0%, transparent 65%),
+      radial-gradient(ellipse 45% 50% at var(--mesh-x3) var(--mesh-y3),
+        oklch(62% 0.205 25 / 0.05) 0%, transparent 60%);
+  }
+
+  /* ─── Glassmorphism — multi-level depth system ──────────────────
+     Three tiers mirroring macOS material system.
+     Requires a colorful background behind the element.
+  ─────────────────────────────────────────────────────────────── */
+
+  /* Tier 1 — ultra-subtle frost, for nav elements / tabs */
+  .glass-sm {
+    backdrop-filter: blur(8px) saturate(160%);
+    -webkit-backdrop-filter: blur(8px) saturate(160%);
+    background: oklch(18% 0.025 265 / 0.6);
+    border: 1px solid oklch(75% 0.140 230 / 0.08);
+  }
+
+  /* Tier 2 — standard glass, for cards on dark animated backgrounds */
+  .glass {
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    background: oklch(15% 0.025 265 / 0.75);
+    border: 1px solid oklch(75% 0.140 230 / 0.10);
+    box-shadow: 0 1px 0 0 oklch(75% 0.140 230 / 0.06) inset,
+                0 8px 32px oklch(12% 0.030 265 / 0.4);
+  }
+
+  /* Tier 2 light — glass for Alcon ice-blue light-mode areas */
+  .glass-light {
+    backdrop-filter: blur(16px) saturate(180%);
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    background: oklch(98% 0.008 260 / 0.85);
+    border: 1px solid oklch(48% 0.145 260 / 0.08);
+    box-shadow:
+      0 1px 0 0 oklch(100% 0 0 / 0.8) inset,
+      0 4px 16px oklch(32% 0.155 265 / 0.06);
+  }
+
+  /* Tier 3 — heavy frost, for modals and command palette */
+  .glass-heavy {
+    backdrop-filter: blur(24px) saturate(200%);
+    -webkit-backdrop-filter: blur(24px) saturate(200%);
+    background: oklch(12% 0.030 265 / 0.90);
+    border: 1px solid oklch(75% 0.140 230 / 0.14);
+    box-shadow:
+      0 1px 0 0 oklch(75% 0.140 230 / 0.08) inset,
+      0 16px 48px oklch(10% 0.030 265 / 0.5),
+      0 0 0 1px oklch(30% 0.145 265 / 0.3);
+  }
+
+  /* ─── Gradient text ─────────────────────────────────────────────
+     OKLCH gradient text — vivid, perceptually uniform.
+     Apply to headings, KPI numbers, logo text.
+  ─────────────────────────────────────────────────────────────── */
+
+  /* Alcon sky→cyan gradient — primary brand text */
+  .gradient-text-blue {
+    background: linear-gradient(135deg in oklch,
+      oklch(70% 0.110 245), oklch(75% 0.140 230));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /* Alcon hero gradient — navy→sky for headlines */
+  .gradient-text-hero {
+    background: linear-gradient(135deg in oklch,
+      oklch(48% 0.145 260), oklch(75% 0.140 230));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /* Alcon teal health gradient */
+  .gradient-text-health {
+    background: linear-gradient(135deg in oklch,
+      oklch(65% 0.130 165), oklch(70% 0.110 245));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /* Alcon gold warning gradient */
+  .gradient-text-warning {
+    background: linear-gradient(135deg in oklch,
+      oklch(70% 0.125 75), oklch(62% 0.205 25));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    color: transparent;
+  }
+
+  /* ─── Gradient borders via pseudo-element trick ─────────────────
+     Cannot animate border-image directly, but this wrapper approach
+     gives a clean gradient border effect.
+  ─────────────────────────────────────────────────────────────── */
+
+  /* Alcon sky→cyan gradient border */
+  .gradient-border-blue {
+    position: relative;
+    border: 1px solid transparent;
+    background-clip: padding-box;
+  }
+  .gradient-border-blue::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(135deg in oklch,
+      oklch(48% 0.145 260), oklch(75% 0.140 230));
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* ─── Gradient buttons ──────────────────────────────────────────
+     OKLCH gradient fill: vivid, never muddy mid-tones.
+     The "in oklch" interpolation method is Tailwind v4 native;
+     here we do it raw in CSS for Tailwind v3 compatibility.
+  ─────────────────────────────────────────────────────────────── */
+
+  /* Alcon button blue → bright cyan gradient */
+  .btn-gradient {
+    background: linear-gradient(135deg in oklch,
+      oklch(48% 0.140 265) 0%,
+      oklch(75% 0.140 230) 100%);
+    color: white;
+    border: none;
+    position: relative;
+    overflow: hidden;
+    transition: opacity 150ms ease, transform 100ms ease;
+  }
+  .btn-gradient::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      var(--shimmer-angle),
+      transparent 30%,
+      oklch(96% 0.020 240 / 0.20) 50%,
+      transparent 70%
+    );
+    animation: shimmer-sweep 3s linear infinite;
+    pointer-events: none;
+  }
+  .btn-gradient:hover {
+    opacity: 0.92;
+    transform: translateY(-1px);
+  }
+  .btn-gradient:active {
+    transform: translateY(0);
+    opacity: 1;
+  }
+
+  /* ─── Glow effects — OKLCH-aware shadow colors ──────────────────
+     OKLCH shadow colors render more naturally than rgba() shadows
+     because the chroma channel is independent of lightness.
+  ─────────────────────────────────────────────────────────────── */
+
+  .glow-blue {
+    box-shadow: 0 0 24px var(--ok-sky-glow), 0 0 8px var(--ok-sky-dim);
+  }
+  .glow-cyan {
+    box-shadow: 0 0 24px var(--ok-cyan-glow), 0 0 8px var(--ok-cyan-dim);
+  }
+  .glow-navy {
+    box-shadow: 0 0 24px var(--ok-navy-glow), 0 0 8px var(--ok-navy-dim);
+  }
+  .glow-violet {
+    box-shadow: 0 0 24px var(--ok-violet-glow), 0 0 8px var(--ok-violet-dim);
+  }
+  .glow-green {
+    box-shadow: 0 0 24px var(--ok-teal-glow), 0 0 8px var(--ok-teal-dim);
+  }
+  .glow-amber {
+    box-shadow: 0 0 24px var(--ok-gold-glow), 0 0 8px var(--ok-gold-dim);
+  }
+  .glow-red {
+    animation: glow-breathe 2.5s ease-in-out infinite;
+    box-shadow: 0 0 24px oklch(62% 0.205 25 / var(--glow-opacity));
+  }
+
+  /* ─── Health status ambient aura — upgraded to OKLCH ────────────
+     Replaces rgba() aura classes. OKLCH means the green doesn't
+     look gray-green and the red doesn't look brown-red.
+  ─────────────────────────────────────────────────────────────── */
+
+  /* Alcon teal aura for healthy state */
+  .aura-healthy {
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 30%,
+        oklch(65% 0.130 165 / 0.08) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 80% 70%,
+        oklch(70% 0.110 245 / 0.05) 0%, transparent 70%);
+  }
+  /* Alcon gold aura for warning state */
+  .aura-warning {
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 30%,
+        oklch(70% 0.125 75 / 0.10) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 80% 70%,
+        oklch(62% 0.205 25 / 0.05) 0%, transparent 70%);
+  }
+  .aura-critical {
+    animation: glow-breathe 3s ease-in-out infinite;
+    background:
+      radial-gradient(ellipse 60% 50% at 20% 30%,
+        oklch(62% 0.205 25 / 0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 40% at 80% 70%,
+        oklch(70% 0.125 75 / 0.07) 0%, transparent 70%);
+    box-shadow: 0 0 0 1px oklch(62% 0.205 25 / 0.15);
+  }
+
+  /* ─── Card entrance / exit animations ──────────────────────────
+     Applied via Framer Motion. These classes are fallbacks for
+     components not yet animated.
+  ─────────────────────────────────────────────────────────────── */
+
+  .animate-fade-up {
+    animation: fade-in-up 280ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .animate-slide-right {
+    animation: slide-in-right 320ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* Stagger delay helpers for cascade effects */
+  .stagger-1  { animation-delay:  40ms; }
+  .stagger-2  { animation-delay:  80ms; }
+  .stagger-3  { animation-delay: 120ms; }
+  .stagger-4  { animation-delay: 160ms; }
+  .stagger-5  { animation-delay: 200ms; }
+  .stagger-6  { animation-delay: 240ms; }
+
+  /* ─── Gradient health bars ───────────────────────────────────── */
+
+  /* Alcon teal health bar */
+  .health-bar-healthy {
+    background: linear-gradient(90deg in oklch,
+      oklch(65% 0.130 165), oklch(70% 0.110 245));
+  }
+  /* Alcon gold warning bar */
+  .health-bar-warning {
+    background: linear-gradient(90deg in oklch,
+      oklch(70% 0.125 75), oklch(62% 0.205 25));
+  }
+  .health-bar-critical {
+    background: linear-gradient(90deg in oklch,
+      oklch(62% 0.205 25), oklch(70% 0.125 75));
+    animation: glow-breathe 2.5s ease-in-out infinite;
+  }
+
+  /* ─── Premium card surface ───────────────────────────────────── */
+
+  /* Navy-tinted premium card surface */
+  .card-premium {
+    background: oklch(16% 0.025 265);
+    border: 1px solid oklch(75% 0.140 230 / 0.08);
+    box-shadow:
+      0 1px 0 oklch(75% 0.140 230 / 0.06) inset,
+      0 0 0 1px oklch(12% 0.030 265 / 0.3),
+      0 4px 16px oklch(10% 0.030 265 / 0.25);
+  }
+  .card-premium:hover {
+    border-color: oklch(75% 0.140 230 / 0.14);
+    box-shadow:
+      0 1px 0 oklch(75% 0.140 230 / 0.08) inset,
+      0 0 0 1px oklch(12% 0.030 265 / 0.4),
+      0 8px 24px oklch(10% 0.030 265 / 0.35);
+  }
+
+  /* ─── Shimmer loading skeleton ───────────────────────────────── */
+
+  /* Navy-tinted shimmer skeleton */
+  .shimmer {
+    background: linear-gradient(
+      var(--shimmer-angle),
+      oklch(18% 0.025 265) 25%,
+      oklch(24% 0.020 265) 50%,
+      oklch(18% 0.025 265) 75%
+    );
+    animation: shimmer-sweep 1.5s linear infinite;
+    border-radius: 4px;
+  }
+
+  /* ─── Typography enhancements ───────────────────────────────── */
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+  .text-mono {
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-feature-settings: "liga" 1, "calt" 1;
+  }
+
+  /* ─── Focus visible — keyboard accessibility ─────────────────── */
+
+  .focus-ring:focus-visible {
+    outline: 2px solid var(--ok-blue);
+    outline-offset: 2px;
+  }
+
+  /* ─── Content Visibility — deferred off-screen rendering ────────
+     Browser skips layout + paint for items outside the viewport.
+     contain-intrinsic-size is a hint — browser caches actual size
+     after first paint so scroll bars stay stable.
+     7× render performance improvement on long lists (Chrome team).
+     Zero JS, zero dependencies — pure CSS platform primitive.
+  ─────────────────────────────────────────────────────────────── */
+
+  /* Dense table rows — Portfolio Critical/Watch sections (~44px) */
+  .cv-row {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 44px;
+  }
+
+  /* Compact cards — Portfolio healthy section (~80px) */
+  .cv-card-sm {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 80px;
+  }
+
+  /* Standard cards — Approvals list (~120px collapsed) */
+  .cv-card {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 120px;
+  }
+
+  /* ─── CSS Subgrid — aligned multi-row card content ──────────────
+     Cards in the same grid row share row track heights.
+     Label, value, and meta lines align perfectly across all cards
+     regardless of content length — no JS measurement needed.
+     97%+ browser coverage (Chrome 117+, Safari 16+, Firefox 71+).
+
+     Pattern:
+       1. Add .kpi-grid-rows to the grid container  → defines 3 shared row tracks
+       2. Add .kpi-card-rows to each direct child   → spans all 3, uses subgrid
+       3. Each card's 3 direct children occupy one track each
+
+     Result: all labels sit on the same baseline, all values on the
+     same baseline, all meta text on the same baseline — across every
+     card in the row, regardless of content variation.
+  ─────────────────────────────────────────────────────────────── */
+
+  /* Grid container: defines 3 shared row tracks (label / value / meta) */
+  .kpi-grid-rows {
+    grid-template-rows: auto auto auto;
+  }
+
+  /* Each card: spans 3 tracks and inherits them from the parent */
+  .kpi-card-rows {
+    display: grid;
+    grid-row: span 3;
+    grid-template-rows: subgrid;
+    align-content: start;
+  }
+
+  /* ─── Scroll-Driven Animations — compositor thread, zero JS ─────
+     Elements animate as they enter the nearest scroll container.
+     animation-timeline: view() finds the nearest ancestor with
+     overflow: auto/scroll and uses that as the scroll source —
+     so timeline panel entries animate within their panel,
+     sprint rows animate within their fixed-height list,
+     and roadmap rows animate within the page scroll.
+
+     animation-range: entry 0% entry 25% means the full animation
+     plays as the element travels from 0% to 25% into the viewport.
+     No requestAnimationFrame, no IntersectionObserver, no React
+     state — pure CSS on the compositor thread.
+  ─────────────────────────────────────────────────────────────── */
+
+  /* Vertical list items — fade up from slight offset */
+  .scroll-reveal-up {
+    animation: fade-in-up linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 25%;
+  }
+
+  /* Horizontal timeline entries — slide in from left */
+  .scroll-reveal-left {
+    animation: slide-in-left linear both;
+    animation-timeline: view();
+    animation-range: entry 0% entry 25%;
+  }
+
+  /* ─── @starting-style — CSS-native entry animations ──────────────────
+     Works with React conditional rendering:
+       • Browser fires @starting-style on the element's first paint
+       • `transition` animates from those values to the element's real CSS
+       • No JS, no Framer Motion, compositor-thread safe
+
+     Usage:
+       .enter-fade  → simple opacity fade (tab panels, inline reveals)
+       .cp-backdrop → command palette backdrop (class-toggled, always in DOM)
+       .cp-panel    → command palette card  (class-toggled, always in DOM)
+
+     cp-backdrop / cp-panel use `transition-behavior: allow-discrete` so
+     `display` itself transitions — enabling both entry AND exit animations
+     from a single CSS class toggle.
+  ══════════════════════════════════════════════════════════════════════ */
+
+  /* Simple fade — applied to newly-mounted elements (e.g. tab panels) */
+  .enter-fade {
+    transition: opacity 0.1s ease-out;
+  }
+
+  /* Command palette backdrop — always in DOM, toggled via .is-open */
+  .cp-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background: rgb(0 0 0 / 0.6);
+    backdrop-filter: blur(4px);
+    cursor: default;
+
+    /* Hidden state */
+    display: none;
+    opacity: 0;
+    pointer-events: none;
+
+    transition:
+      opacity    0.15s ease-out,
+      display    0.15s allow-discrete;
+  }
+  .cp-backdrop.is-open {
+    display: block;
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Command palette card — always in DOM, toggled via .is-open */
+  .cp-panel {
+    position: fixed;
+    top: 6rem;           /* top-24 */
+    left: 50%;
+    translate: -50% 0;
+    z-index: 50;
+    width: 100%;
+    max-width: 36rem;    /* max-w-xl */
+
+    /* Hidden state */
+    display: none;
+    opacity: 0;
+    transform: scale(0.96) translateY(-8px);
+    pointer-events: none;
+
+    transition:
+      opacity    0.15s ease-out,
+      transform  0.15s ease-out,
+      display    0.15s allow-discrete;
+  }
+  .cp-panel.is-open {
+    display: block;
+    opacity: 1;
+    transform: scale(1) translateY(0);
+    pointer-events: auto;
   }
 }
 
-@layer utilities {
-  /* Glass morphism — Sprint 0 innovation #7 */
-  .glass {
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    background: rgba(22, 27, 34, 0.8);
-    border: 1px solid rgba(240, 246, 252, 0.1);
-  }
+/* @starting-style — must live outside @layer to work correctly in all engines */
 
-  /* Ambient health aura — Sprint 0 innovation #4 */
-  .aura-healthy {
-    background: radial-gradient(ellipse 60% 50% at 20% 30%, rgba(63, 185, 80, 0.07) 0%, transparent 70%),
-                radial-gradient(ellipse 40% 40% at 80% 70%, rgba(88, 166, 255, 0.05) 0%, transparent 70%);
+@starting-style {
+  .enter-fade {
+    opacity: 0;
   }
-  .aura-warning {
-    background: radial-gradient(ellipse 60% 50% at 20% 30%, rgba(210, 153, 34, 0.09) 0%, transparent 70%),
-                radial-gradient(ellipse 40% 40% at 80% 70%, rgba(248, 81, 73, 0.05) 0%, transparent 70%);
-  }
-  .aura-critical {
-    background: radial-gradient(ellipse 60% 50% at 20% 30%, rgba(248, 81, 73, 0.1) 0%, transparent 70%),
-                radial-gradient(ellipse 40% 40% at 80% 70%, rgba(210, 153, 34, 0.07) 0%, transparent 70%);
-  }
+}
 
-  /* Glow effects for key UI elements */
-  .glow-blue {
-    box-shadow: 0 0 20px rgba(88, 166, 255, 0.2);
+@starting-style {
+  .cp-backdrop.is-open {
+    opacity: 0;
   }
-  .glow-green {
-    box-shadow: 0 0 20px rgba(63, 185, 80, 0.2);
-  }
-  .glow-violet {
-    box-shadow: 0 0 20px rgba(188, 140, 255, 0.2);
+}
+
+@starting-style {
+  .cp-panel.is-open {
+    opacity: 0;
+    transform: scale(0.96) translateY(-8px);
   }
 }
