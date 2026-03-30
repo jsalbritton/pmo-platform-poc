@@ -23,6 +23,7 @@ import {
 import { motion, AnimatePresence } from 'framer-motion'
 import { PaperPlaneTilt, X, At } from '@phosphor-icons/react'
 import { db } from '@/lib/supabase'
+import { formatShortcut } from '@/lib/platform'
 import { useAddComment } from '../useWorkItemMutations'
 import {
   profileDisplayName,
@@ -286,7 +287,7 @@ export function CommentComposer({
                 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed
                 transition-colors
               "
-              title="Submit (⌘↵)"
+              title={`Submit (${formatShortcut('mod+enter')})`}
             >
               <PaperPlaneTilt size={14} weight="fill" />
             </button>
@@ -294,8 +295,8 @@ export function CommentComposer({
         </div>
 
         <div className="text-[10px] text-slate-700 mt-1.5 px-1">
-          <kbd className="font-mono">⌘↵</kbd> submit &nbsp;·&nbsp;
-          <kbd className="font-mono">Shift+↵</kbd> new line &nbsp;·&nbsp;
+          <kbd className="font-mono">{formatShortcut('mod+enter')}</kbd> submit &nbsp;·&nbsp;
+          <kbd className="font-mono">{formatShortcut('shift+enter')}</kbd> new line &nbsp;·&nbsp;
           <kbd className="font-mono">@</kbd> mention
         </div>
       </div>

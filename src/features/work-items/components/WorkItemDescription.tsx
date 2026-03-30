@@ -17,6 +17,7 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useUpdateWorkItem } from '../useWorkItemMutations'
+import { formatShortcut } from '@/lib/platform'
 
 interface WorkItemDescriptionProps {
   itemId:      string
@@ -168,7 +169,7 @@ export function WorkItemDescription({ itemId, description }: WorkItemDescription
 Tip: **bold text**, `inline code`"
             />
             <div className="text-[10px] text-slate-600 mt-1 px-1">
-              <kbd className="font-mono">⌘↵</kbd> save &nbsp;·&nbsp;
+              <kbd className="font-mono">{formatShortcut('mod+enter')}</kbd> save &nbsp;·&nbsp;
               <kbd className="font-mono">Esc</kbd> cancel
             </div>
           </motion.div>

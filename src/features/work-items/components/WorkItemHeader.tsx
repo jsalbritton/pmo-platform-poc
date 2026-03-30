@@ -26,18 +26,19 @@ import {
   type WorkItemFull,
   type WorkItemType,
 } from '../workItem.types'
+import { formatShortcut } from '@/lib/platform'
 
 // ─── KEYBOARD SHORTCUT LEGEND ─────────────────────────────────────────────────
 
 const SHORTCUTS = [
-  { key: 'E',       label: 'Edit title'           },
-  { key: 'S',       label: 'Change status'        },
-  { key: 'A',       label: 'Assign'               },
-  { key: 'C',       label: 'Focus comment input'  },
-  { key: '⌘↵',      label: 'Submit comment'       },
-  { key: 'Esc',     label: 'Close / cancel edit'  },
-  { key: '⌘⇧C',     label: 'Copy permalink'       },
-  { key: '?',       label: 'Show shortcuts'       },
+  { key: 'E',                              label: 'Edit title'           },
+  { key: 'S',                              label: 'Change status'        },
+  { key: 'A',                              label: 'Assign'               },
+  { key: 'C',                              label: 'Focus comment input'  },
+  { key: formatShortcut('mod+enter'),      label: 'Submit comment'       },
+  { key: 'Esc',                            label: 'Close / cancel edit'  },
+  { key: formatShortcut('mod+shift+c'),    label: 'Copy permalink'       },
+  { key: '?',                              label: 'Show shortcuts'       },
 ]
 
 function ShortcutLegend({ onClose }: { onClose: () => void }) {
@@ -168,7 +169,7 @@ export function WorkItemHeader({
         {/* Copy permalink */}
         <button
           onClick={handleCopyLink}
-          title="Copy permalink (⌘⇧C)"
+          title={`Copy permalink (${formatShortcut('mod+shift+c')})`}
           className="
             p-1.5 rounded-lg text-slate-600
             hover:text-slate-400 hover:bg-white/5

@@ -33,6 +33,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useInactivityLogout } from '@/hooks/useInactivityLogout'
 import { SESSION_CONFIG } from '@/config/session'
 import type { AuthSession } from '@/lib/auth'
+import { formatShortcut } from '@/lib/platform'
 
 // ─── ROLE DISPLAY MAPS ────────────────────────────────────────────────────────
 
@@ -310,7 +311,7 @@ function Sidebar({
         <span className="flex-1 text-left">Search...</span>
         <kbd className="text-[10px] bg-white/5 border border-white/10 rounded px-1.5 py-0.5 font-mono
                         group-hover:border-white/20 transition-colors">
-          ⌘K
+          {formatShortcut('mod+k')}
         </kbd>
       </button>
 

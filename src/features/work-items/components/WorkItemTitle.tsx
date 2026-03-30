@@ -13,6 +13,7 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useUpdateWorkItem } from '../useWorkItemMutations'
+import { formatShortcut } from '@/lib/platform'
 
 interface WorkItemTitleProps {
   itemId:     string
@@ -113,7 +114,7 @@ export function WorkItemTitle({ itemId, title, editSignal }: WorkItemTitleProps)
             />
             <div className="flex items-center justify-between mt-1">
               <span className="text-[10px] text-slate-600">
-                <kbd className="font-mono">⌘↵</kbd> save &nbsp;·&nbsp;
+                <kbd className="font-mono">{formatShortcut('mod+enter')}</kbd> save &nbsp;·&nbsp;
                 <kbd className="font-mono">Esc</kbd> cancel
               </span>
               {showCharLimit && (

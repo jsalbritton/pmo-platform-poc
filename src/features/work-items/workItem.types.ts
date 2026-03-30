@@ -84,9 +84,8 @@ export interface WorkItem {
 }
 
 // ─── COMMENT ──────────────────────────────────────────────────────────────────
-// NOTE: parent_comment_id is added by Migration 015 (pending Jeremy's approval).
-// The field is optional here — the UI degrades gracefully to flat comments if
-// the migration has not yet run (parent_comment_id will be undefined/null on all rows).
+// parent_comment_id added by Migration 015 (applied 2026-03-29).
+// 1-level threading: replies cannot have sub-replies (GitHub PR style).
 
 export interface WorkItemComment {
   id:                string
