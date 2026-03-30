@@ -1,19 +1,17 @@
 /**
- * BoardHeader — control bar at the top of the Kanban board.
+ * BoardHeader — control bar at the top of the Sprint Board.
  *
  * LAYOUT:
- *   ┌──────────────────────────────────────────────────────────────────────┐
- *   │  Sprint Board                                                        │
- *   │  [Sprint 3 ▾]  [Group: Status ▾]  [Filter ▾]  [12/25 shown]  [⚙]  │
- *   └──────────────────────────────────────────────────────────────────────┘
+ *   ┌─────────────────────────────────────────────────────────────────────────┐
+ *   │  Sprint Board                                                           │
+ *   │  [Active Sprints ▾]  [Group: Status ▾]  [Filter ▾]  [🔍]  1,994 items │
+ *   └─────────────────────────────────────────────────────────────────────────┘
  *
- * FEATURES:
- *   - Sprint selector dropdown (pick which sprint to view)
- *   - Group-by selector (status | assignee | priority | type)
- *   - Quick-filter button → popover with checkboxes for type/priority/assignee/labels
- *   - Active filter count badge
- *   - Item count (filtered / total)
- *   - Search input (title text search)
+ * CHANGES from v1:
+ *   - Sprint SCOPE selector (Active/Planned/Completed/All) replaces per-project sprint picker
+ *   - Project filter section in filter popover
+ *   - "Group by Project" option added
+ *   - Search is board-level (filters items), NOT Command Palette
  */
 
 import { useState, useRef, useEffect } from 'react'
@@ -29,6 +27,7 @@ import {
   Flag,
   Tag,
   Lightning,
+  Briefcase,
 } from '@phosphor-icons/react'
 import type {
   WorkItemType,
@@ -40,7 +39,7 @@ import {
   PRIORITY_CONFIG,
   profileDisplayName,
 } from '@/features/work-items/workItem.types'
-import type { GroupByField, KanbanFilters, SprintOption } from './useKanbanBoard'
+import type { GroupByField, KanbanFilters, SprintScope, BoardProject } from './useKanbanBoard'
 
 // ─── GENERIC DROPDOWN ────────────────────────────────────────────────────────
 
@@ -199,10 +198,10 @@ function FilterSection<T extends string>({
 // ─── COMPONENT ───────────────────────────────────────────────────────────────
 
 interface BoardHeaderProps {
-  // Sprint
-  sprints:          SprintOption[]
-  selectedSprintId: string | null
-  onSprintChange:   (id: string | null) => void
+  // Sprint scope
+  sprintScope:        SprintScope
+  onSprintScopeChange: (s: SprintScope) => void
+  isCrossProject:     boolean
 
   // Group
   groupBy:        GroupByField
@@ -219,21 +218,34 @@ interface BoardHeaderProps {
   filteredCount: number
 
   // Data for filter dropdowns
-  teamMembers:   WorkItemProfile[]
-  allLabels:     string[]
+  teamMembers:       WorkItemProfile[]
+  allLabels:         string[]
+  availableProjects: BoardProject[]
+
+  // Board search
+  showSearch:      boolean
+  onToggleSearch:  () => void
 }
+
+const SPRINT_SCOPE_OPTIONS: { value: SprintScope; label: string; color: string }[] = [
+  { value: 'active',    label: 'Active Sprints',    color: 'text-emerald-400' },
+  { value: 'planned',   label: 'Planned Sprints',   color: 'text-amber-400' },
+  { value: 'completed', label: 'Completed Sprints', color: 'text-slate-400' },
+  { value: 'all',       label: 'All Sprints',       color: 'text-blue-400' },
+]
 
 const GROUP_OPTIONS: { value: GroupByField; label: string; icon: typeof Rows }[] = [
   { value: 'status',   label: 'Status',   icon: Rows },
   { value: 'assignee', label: 'Assignee', icon: User },
   { value: 'priority', label: 'Priority', icon: Flag },
   { value: 'type',     label: 'Type',     icon: SquaresFour },
+  { value: 'project',  label: 'Project',  icon: Briefcase },
 ]
 
 export function BoardHeader({
-  sprints,
-  selectedSprintId,
-  onSprintChange,
+  sprintScope,
+  onSprintScopeChange,
+  isCrossProject,
   groupBy,
   onGroupChange,
   filters,
@@ -244,14 +256,16 @@ export function BoardHeader({
   filteredCount,
   teamMembers,
   allLabels,
+  availableProjects,
+  showSearch,
+  onToggleSearch,
 }: BoardHeaderProps) {
-  const [showSearch, setShowSearch] = useState(false)
-
   const activeFilterCount =
     filters.types.length +
     filters.priorities.length +
     filters.assignees.length +
     filters.labels.length +
+    filters.projects.length +
     (filters.search.trim() ? 1 : 0)
 
   // ── Filter toggle helpers ───────────────────────────────────────────────────
@@ -283,12 +297,14 @@ export function BoardHeader({
     onFiltersChange({ ...filters, labels: next })
   }
 
-  // ── Active sprint display ───────────────────────────────────────────────────
-  const selectedSprint = sprints.find((s) => s.id === selectedSprintId)
-  const sprintLabel = selectedSprint
-    ? `Sprint ${selectedSprint.sprint_number}${selectedSprint.name ? ` — ${selectedSprint.name}` : ''}`
-    : 'All Sprints'
+  function toggleProject(id: string) {
+    const next = filters.projects.includes(id)
+      ? filters.projects.filter((x) => x !== id)
+      : [...filters.projects, id]
+    onFiltersChange({ ...filters, projects: next })
+  }
 
+  const currentScopeOption = SPRINT_SCOPE_OPTIONS.find(s => s.value === sprintScope)!
   const currentGroupOption = GROUP_OPTIONS.find((g) => g.value === groupBy)!
 
   return (
@@ -307,7 +323,7 @@ export function BoardHeader({
 
         <div className="w-px h-5 bg-white/10" />
 
-        {/* Sprint selector */}
+        {/* Sprint scope selector */}
         <Dropdown
           trigger={
             <button className="
@@ -316,34 +332,19 @@ export function BoardHeader({
               text-xs text-slate-300 hover:text-slate-200
               transition-colors
             ">
-              <Lightning size={12} weight="bold" className="text-amber-400" />
-              {sprintLabel}
+              <Lightning size={12} weight="bold" className={currentScopeOption.color} />
+              {currentScopeOption.label}
               <CaretDown size={10} weight="bold" className="text-slate-600" />
             </button>
           }
         >
-          <DropdownItem
-            onClick={() => onSprintChange(null)}
-            active={selectedSprintId === null}
-          >
-            All Sprints
-          </DropdownItem>
-          <div className="h-px bg-white/5 my-1" />
-          {sprints.map((s) => (
+          {SPRINT_SCOPE_OPTIONS.map((opt) => (
             <DropdownItem
-              key={s.id}
-              onClick={() => onSprintChange(s.id)}
-              active={s.id === selectedSprintId}
+              key={opt.value}
+              onClick={() => onSprintScopeChange(opt.value)}
+              active={sprintScope === opt.value}
             >
-              <div className="flex flex-col">
-                <span>Sprint {s.sprint_number}{s.name ? ` — ${s.name}` : ''}</span>
-                {s.sprint_start && (
-                  <span className="text-[10px] text-slate-600">
-                    {new Date(s.sprint_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
-                    {s.sprint_end && ` – ${new Date(s.sprint_end).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`}
-                  </span>
-                )}
-              </div>
+              <span className={opt.color}>{opt.label}</span>
             </DropdownItem>
           ))}
         </Dropdown>
@@ -400,6 +401,24 @@ export function BoardHeader({
           }
           align="left"
         >
+          {/* Project filters (cross-project mode) */}
+          {isCrossProject && availableProjects.length > 0 && (
+            <>
+              <FilterSection
+                label={`Project (${availableProjects.length})`}
+                icon={Briefcase}
+                options={availableProjects.map(p => p.id)}
+                selected={filters.projects}
+                onToggle={toggleProject}
+                getLabel={(id) => {
+                  const p = availableProjects.find(x => x.id === id)
+                  return p ? `${p.code} · ${p.name}` : id.slice(0, 8)
+                }}
+              />
+              <div className="h-px bg-white/5" />
+            </>
+          )}
+
           {/* Type filters */}
           <FilterSection
             label="Type"
@@ -474,9 +493,9 @@ export function BoardHeader({
           )}
         </Dropdown>
 
-        {/* Search toggle */}
+        {/* Search toggle — board-level search, NOT Command Palette */}
         <button
-          onClick={() => setShowSearch((v) => !v)}
+          onClick={onToggleSearch}
           className={`
             p-1.5 rounded-lg border transition-colors
             ${showSearch || filters.search
@@ -484,6 +503,7 @@ export function BoardHeader({
               : 'bg-white/5 border-white/8 hover:border-white/15 text-slate-400 hover:text-slate-300'
             }
           `}
+          title="Search board items (/)"
         >
           <MagnifyingGlass size={14} weight="bold" />
         </button>
@@ -505,7 +525,7 @@ export function BoardHeader({
         </div>
       </div>
 
-      {/* ── Row 2: Search bar (conditional) ────────────────────────────────── */}
+      {/* ── Row 2: Search bar (conditional, board-level) ──────────────────── */}
       {showSearch && (
         <div className="flex items-center gap-2 px-4 pb-3">
           <MagnifyingGlass size={14} className="text-slate-600 flex-shrink-0" />
@@ -513,7 +533,7 @@ export function BoardHeader({
             type="text"
             value={filters.search}
             onChange={(e) => onFiltersChange({ ...filters, search: e.target.value })}
-            placeholder="Search by title…"
+            placeholder="Search items by title..."
             autoFocus
             className="
               flex-1 bg-transparent border-none outline-none
@@ -534,6 +554,16 @@ export function BoardHeader({
       {/* ── Row 3: Active filter chips ─────────────────────────────────────── */}
       {hasActiveFilter && (
         <div className="flex items-center gap-1.5 px-4 pb-2.5 flex-wrap">
+          {filters.projects.map((id) => {
+            const p = availableProjects.find(x => x.id === id)
+            return (
+              <FilterChip
+                key={`prj-${id}`}
+                label={p ? p.code : id.slice(0, 8)}
+                onRemove={() => toggleProject(id)}
+              />
+            )
+          })}
           {filters.types.map((t) => (
             <FilterChip
               key={`type-${t}`}

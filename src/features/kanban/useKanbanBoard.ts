@@ -1,35 +1,32 @@
 /**
- * useKanbanBoard — data layer for the Kanban Sprint Board (S1B-002).
+ * useKanbanBoard — data layer for the Sprint Board (S1B-002).
  *
- * RESPONSIBILITIES:
- *   1. Fetch work items for a project, optionally filtered by sprint
- *   2. Group items into columns (by status, assignee, priority, or type)
- *   3. Apply quick-filters (type, priority, assignee, label, search text)
- *   4. Handle drag-and-drop reordering + column moves (status changes)
- *   5. Expose column metadata (count, WIP limit, over-limit flag)
+ * ARCHITECTURE: Sprint-centric, cross-project.
+ *   The board defaults to showing ALL work items in ACTIVE sprints across
+ *   every project. Project is a FILTER, not the entry point.
  *
- * ARCHITECTURE:
- *   Raw data    → useQuery(workItemKeys.list(projectId))
- *   Grouped     → useMemo: group items into KanbanColumnData[]
- *   Filtered    → useMemo: apply quick-filters to grouped data
- *   Reordered   → optimistic mutation on drop (board_position + status)
+ *   Raw data    → useQuery: items in active sprints, cross-project
+ *   Filtered    → useMemo: apply quick-filters (project, type, priority, assignee, label, search)
+ *   Grouped     → useMemo: group into columns (status, assignee, priority, type, project)
+ *   Reordered   → optimistic mutation on drop (board_position + groupBy field)
  *
- * WHY GROUP CLIENT-SIDE?
- *   The board shows ≤200 items for one sprint. Grouping in JS is <1ms.
- *   Server-side grouping would require N queries (one per column) or a
- *   custom RPC. Client-side grouping keeps the data layer simple and
- *   lets us re-group instantly when the user switches group-by dimension.
+ * WHY CLIENT-SIDE GROUPING?
+ *   Even at 2,000 items, JS grouping runs in <5ms. Server-side grouping
+ *   would require N queries or a custom RPC. Client-side keeps the data
+ *   layer simple and lets us re-group instantly when switching dimensions.
+ *
+ * SPRINT SCOPE:
+ *   - "Active Sprints" (default): items where sprint.status = 'active'
+ *   - "All Sprints": no sprint filter
+ *   - Planned/Completed: filter by sprint.status
  *
  * WIP LIMITS:
- *   Stored per-column in local state (not DB — WIP limits are a team
- *   preference, not a data attribute). Default: unlimited. When set,
- *   the column header shows a warning badge if count > limit.
+ *   Stored per-column in local state (not DB). Default: unlimited.
  */
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useState, useMemo, useCallback } from 'react'
 import { db } from '@/lib/supabase'
-import { workItemKeys } from '@/features/work-items/useWorkItem'
 import type {
   WorkItem,
   WorkItemStatus,
@@ -41,35 +38,47 @@ import { STATUS_CONFIG, PRIORITY_CONFIG, TYPE_CONFIG } from '@/features/work-ite
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
-/** A work item with its joined assignee profile (board-level shape) */
+/** A work item with joined assignee + project info (board-level shape) */
 export interface KanbanItem extends WorkItem {
   assignee: Pick<WorkItemProfile, 'id' | 'full_name' | 'display_name' | 'email' | 'avatar_url'> | null
+  project_info: { id: string; name: string; code: string } | null
 }
 
 /** One column on the board */
 export interface KanbanColumnData {
-  id:        string          // column key (e.g. 'in_progress', 'user-uuid', 'high')
-  label:     string          // display label
-  color:     string          // Tailwind text class or hex
-  dotColor:  string          // hex for status dot
-  items:     KanbanItem[]    // work items in this column
-  wipLimit:  number | null   // null = unlimited
-  isOverWip: boolean         // true if items.length > wipLimit
+  id:        string
+  label:     string
+  color:     string
+  dotColor:  string
+  items:     KanbanItem[]
+  wipLimit:  number | null
+  isOverWip: boolean
 }
 
-/** How columns are grouped */
-export type GroupByField = 'status' | 'assignee' | 'priority' | 'type'
+/** How columns are grouped — now includes 'project' */
+export type GroupByField = 'status' | 'assignee' | 'priority' | 'type' | 'project'
 
-/** Quick-filter state */
+/** Sprint scope options */
+export type SprintScope = 'active' | 'planned' | 'completed' | 'all'
+
+/** Quick-filter state — now includes projects */
 export interface KanbanFilters {
   types:      WorkItemType[]
   priorities: WorkItemPriority[]
-  assignees:  string[]          // user IDs
+  assignees:  string[]
   labels:     string[]
-  search:     string            // free-text title search
+  projects:   string[]            // project IDs
+  search:     string
 }
 
-/** Sprint option for the selector */
+/** Lightweight project info for filter dropdowns */
+export interface BoardProject {
+  id:   string
+  name: string
+  code: string
+}
+
+/** Sprint option for legacy per-project mode */
 export interface SprintOption {
   id:           string
   sprint_number: number
@@ -81,7 +90,6 @@ export interface SprintOption {
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
-/** Status column order (intentional — matches workflow progression) */
 const STATUS_ORDER: WorkItemStatus[] = [
   'backlog', 'todo', 'in_progress', 'in_review', 'done', 'blocked', 'cancelled',
 ]
@@ -94,26 +102,41 @@ const TYPE_ORDER: WorkItemType[] = [
   'epic', 'story', 'task', 'bug', 'spike',
 ]
 
-/** Columns that are collapsed by default */
 export const DEFAULT_COLLAPSED: string[] = ['cancelled']
-
-// ─── EMPTY FILTERS ───────────────────────────────────────────────────────────
 
 export const EMPTY_FILTERS: KanbanFilters = {
   types: [],
   priorities: [],
   assignees: [],
   labels: [],
+  projects: [],
   search: '',
 }
 
-// ─── FETCH ───────────────────────────────────────────────────────────────────
+// ─── FETCH: CROSS-PROJECT (SPRINT-CENTRIC) ──────────────────────────────────
 
 /**
- * Fetch work items for a project, optionally filtered by sprint.
- * Returns top-level items only (sub-tasks loaded in detail panel).
+ * Fetch all work items across projects, scoped by sprint status.
+ * Uses a two-step approach: get sprint IDs, then fetch items.
  */
-async function fetchBoardItems(projectId: string, sprintId?: string | null): Promise<KanbanItem[]> {
+async function fetchCrossProjectItems(sprintScope: SprintScope): Promise<KanbanItem[]> {
+  // Step 1: Get sprint IDs matching the scope
+  let sprintIds: string[] | null = null
+
+  if (sprintScope !== 'all') {
+    const { data: sprints, error: sprintErr } = await db
+      .from('sprints')
+      .select('id')
+      .eq('status', sprintScope)
+
+    if (sprintErr) throw new Error(`Failed to fetch sprints: ${sprintErr.message}`)
+    sprintIds = (sprints ?? []).map(s => s.id)
+
+    // If no sprints match this scope, return empty
+    if (sprintIds.length === 0) return []
+  }
+
+  // Step 2: Fetch work items with assignee + project joins
   let query = db
     .from('work_items')
     .select(`
@@ -124,13 +147,60 @@ async function fetchBoardItems(projectId: string, sprintId?: string | null): Pro
       actual_hours, completed_at, metadata,
       assignee:profiles!work_items_assignee_id_fkey (
         id, full_name, display_name, email, avatar_url
+      ),
+      project_info:projects!work_items_project_id_fkey (
+        id, name, code
+      )
+    `)
+    .is('parent_id', null)
+
+  // Apply sprint filter if not 'all'
+  if (sprintIds) {
+    query = query.in('sprint_id', sprintIds)
+  }
+
+  const { data, error } = await query
+    .order('board_position', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: false })
+    .limit(3000)
+
+  if (error) throw new Error(`Failed to fetch board items: ${error.message}`)
+  return (data ?? []) as unknown as KanbanItem[]
+}
+
+/**
+ * Fetch items for a single project (legacy per-project mode).
+ */
+async function fetchProjectItems(projectId: string, sprintScope: SprintScope): Promise<KanbanItem[]> {
+  let query = db
+    .from('work_items')
+    .select(`
+      id, title, type, status, priority, story_points,
+      assignee_id, sprint_id, board_position, labels, due_date,
+      parent_id, start_date, estimated_hours, project_id,
+      created_at, updated_at, description, phase_id, reporter_id,
+      actual_hours, completed_at, metadata,
+      assignee:profiles!work_items_assignee_id_fkey (
+        id, full_name, display_name, email, avatar_url
+      ),
+      project_info:projects!work_items_project_id_fkey (
+        id, name, code
       )
     `)
     .eq('project_id', projectId)
     .is('parent_id', null)
 
-  if (sprintId) {
-    query = query.eq('sprint_id', sprintId)
+  if (sprintScope !== 'all') {
+    // Get sprint IDs for this project matching the scope
+    const { data: sprints } = await db
+      .from('sprints')
+      .select('id')
+      .eq('project_id', projectId)
+      .eq('status', sprintScope)
+
+    const ids = (sprints ?? []).map(s => s.id)
+    if (ids.length === 0) return []
+    query = query.in('sprint_id', ids)
   }
 
   const { data, error } = await query
@@ -138,62 +208,42 @@ async function fetchBoardItems(projectId: string, sprintId?: string | null): Pro
     .order('created_at', { ascending: false })
 
   if (error) throw new Error(`Failed to fetch board items: ${error.message}`)
-  return (data ?? []) as KanbanItem[]
+  return (data ?? []) as unknown as KanbanItem[]
 }
 
-/** Fetch sprints for a project (for the sprint selector) */
-async function fetchProjectSprints(projectId: string): Promise<SprintOption[]> {
-  const { data, error } = await db
-    .from('sprints')
-    .select('id, sprint_number, name, sprint_start, sprint_end, status')
-    .eq('project_id', projectId)
-    .order('sprint_number', { ascending: false })
-
-  if (error) throw new Error(`Failed to fetch sprints: ${error.message}`)
-  return (data ?? []) as SprintOption[]
-}
-
-/** Fetch unique team members who have items in this project */
-async function fetchProjectTeam(projectId: string): Promise<WorkItemProfile[]> {
-  const { data, error } = await db
-    .rpc('get_project_team_members', { p_project_id: projectId })
-
-  // If the RPC doesn't exist yet, fall back to a simpler query
-  if (error) {
-    const { data: fallback } = await db
-      .from('work_items')
-      .select(`
-        assignee:profiles!work_items_assignee_id_fkey (
-          id, full_name, display_name, email, avatar_url, role, title, department
-        )
-      `)
-      .eq('project_id', projectId)
-      .not('assignee_id', 'is', null)
-
-    if (!fallback) return []
-
-    // Deduplicate by ID
-    const seen = new Set<string>()
-    const unique: WorkItemProfile[] = []
-    for (const row of fallback) {
-      const a = row.assignee as unknown as WorkItemProfile | null
-      if (a && !seen.has(a.id)) {
-        seen.add(a.id)
-        unique.push(a)
-      }
+/** Fetch team members who have items in the current dataset */
+async function fetchTeamFromItems(items: KanbanItem[]): Promise<WorkItemProfile[]> {
+  const seen = new Set<string>()
+  const team: WorkItemProfile[] = []
+  for (const item of items) {
+    const a = item.assignee as unknown as WorkItemProfile | null
+    if (a && !seen.has(a.id)) {
+      seen.add(a.id)
+      team.push(a)
     }
-    return unique
   }
+  return team.sort((a, b) =>
+    (a.display_name ?? a.full_name ?? a.email).localeCompare(
+      b.display_name ?? b.full_name ?? b.email
+    )
+  )
+}
 
-  return (data ?? []) as WorkItemProfile[]
+/** Extract unique projects from items */
+function extractProjects(items: KanbanItem[]): BoardProject[] {
+  const seen = new Map<string, BoardProject>()
+  for (const item of items) {
+    const p = item.project_info
+    if (p && !seen.has(p.id)) {
+      seen.set(p.id, { id: p.id, name: p.name, code: p.code })
+    }
+  }
+  return Array.from(seen.values()).sort((a, b) => a.code.localeCompare(b.code))
 }
 
 // ─── GROUPING ────────────────────────────────────────────────────────────────
 
-function groupByStatus(
-  items: KanbanItem[],
-  wipLimits: Record<string, number | null>,
-): KanbanColumnData[] {
+function groupByStatus(items: KanbanItem[], wipLimits: Record<string, number | null>): KanbanColumnData[] {
   const buckets = new Map<string, KanbanItem[]>()
   for (const s of STATUS_ORDER) buckets.set(s, [])
   for (const item of items) {
@@ -207,21 +257,14 @@ function groupByStatus(
     const colItems = buckets.get(s) ?? []
     const wip = wipLimits[s] ?? null
     return {
-      id:        s,
-      label:     col.label,
-      color:     col.color,
-      dotColor:  col.dotColor,
-      items:     colItems,
-      wipLimit:  wip,
+      id: s, label: col.label, color: col.color, dotColor: col.dotColor,
+      items: colItems, wipLimit: wip,
       isOverWip: wip !== null && colItems.length > wip,
     }
   })
 }
 
-function groupByPriority(
-  items: KanbanItem[],
-  wipLimits: Record<string, number | null>,
-): KanbanColumnData[] {
+function groupByPriority(items: KanbanItem[], wipLimits: Record<string, number | null>): KanbanColumnData[] {
   const buckets = new Map<string, KanbanItem[]>()
   for (const p of PRIORITY_ORDER) buckets.set(p, [])
   for (const item of items) {
@@ -235,21 +278,14 @@ function groupByPriority(
     const colItems = buckets.get(p) ?? []
     const wip = wipLimits[p] ?? null
     return {
-      id:        p,
-      label:     cfg.label,
-      color:     cfg.color,
-      dotColor:  '#64748b',
-      items:     colItems,
-      wipLimit:  wip,
+      id: p, label: cfg.label, color: cfg.color, dotColor: '#64748b',
+      items: colItems, wipLimit: wip,
       isOverWip: wip !== null && colItems.length > wip,
     }
   })
 }
 
-function groupByType(
-  items: KanbanItem[],
-  wipLimits: Record<string, number | null>,
-): KanbanColumnData[] {
+function groupByType(items: KanbanItem[], wipLimits: Record<string, number | null>): KanbanColumnData[] {
   const buckets = new Map<string, KanbanItem[]>()
   for (const t of TYPE_ORDER) buckets.set(t, [])
   for (const item of items) {
@@ -263,25 +299,16 @@ function groupByType(
     const colItems = buckets.get(t) ?? []
     const wip = wipLimits[t] ?? null
     return {
-      id:        t,
-      label:     cfg.label,
-      color:     cfg.color,
-      dotColor:  '#64748b',
-      items:     colItems,
-      wipLimit:  wip,
+      id: t, label: cfg.label, color: cfg.color, dotColor: '#64748b',
+      items: colItems, wipLimit: wip,
       isOverWip: wip !== null && colItems.length > wip,
     }
   })
 }
 
-function groupByAssignee(
-  items: KanbanItem[],
-  wipLimits: Record<string, number | null>,
-): KanbanColumnData[] {
+function groupByAssignee(items: KanbanItem[], wipLimits: Record<string, number | null>): KanbanColumnData[] {
   const buckets = new Map<string, KanbanItem[]>()
   const names = new Map<string, string>()
-
-  // Always have an "Unassigned" column
   const unassignedKey = '__unassigned__'
   buckets.set(unassignedKey, [])
   names.set(unassignedKey, 'Unassigned')
@@ -290,13 +317,11 @@ function groupByAssignee(
     const key = item.assignee_id ?? unassignedKey
     if (!buckets.has(key)) buckets.set(key, [])
     buckets.get(key)!.push(item)
-
     if (item.assignee && !names.has(key)) {
       names.set(key, item.assignee.display_name ?? item.assignee.full_name ?? item.assignee.email.split('@')[0])
     }
   }
 
-  // Sort: unassigned first, then alphabetical by name
   const keys = Array.from(buckets.keys()).sort((a, b) => {
     if (a === unassignedKey) return -1
     if (b === unassignedKey) return 1
@@ -307,12 +332,57 @@ function groupByAssignee(
     const colItems = buckets.get(key) ?? []
     const wip = wipLimits[key] ?? null
     return {
-      id:        key,
-      label:     names.get(key) ?? 'Unknown',
-      color:     'text-slate-300',
-      dotColor:  key === unassignedKey ? '#475569' : '#58a6ff',
-      items:     colItems,
-      wipLimit:  wip,
+      id: key, label: names.get(key) ?? 'Unknown',
+      color: 'text-slate-300', dotColor: key === unassignedKey ? '#475569' : '#58a6ff',
+      items: colItems, wipLimit: wip,
+      isOverWip: wip !== null && colItems.length > wip,
+    }
+  })
+}
+
+/** NEW: Group by project — each column is a project */
+function groupByProject(items: KanbanItem[], wipLimits: Record<string, number | null>): KanbanColumnData[] {
+  const buckets = new Map<string, KanbanItem[]>()
+  const projectMeta = new Map<string, { name: string; code: string }>()
+  const noProjectKey = '__no_project__'
+
+  for (const item of items) {
+    const p = item.project_info
+    const key = p?.id ?? noProjectKey
+    if (!buckets.has(key)) buckets.set(key, [])
+    buckets.get(key)!.push(item)
+    if (p && !projectMeta.has(key)) {
+      projectMeta.set(key, { name: p.name, code: p.code })
+    }
+  }
+
+  // Sort by project code
+  const keys = Array.from(buckets.keys()).sort((a, b) => {
+    if (a === noProjectKey) return 1
+    if (b === noProjectKey) return -1
+    const codeA = projectMeta.get(a)?.code ?? ''
+    const codeB = projectMeta.get(b)?.code ?? ''
+    return codeA.localeCompare(codeB)
+  })
+
+  // Color palette for project columns
+  const projectColors = [
+    '#58a6ff', '#3fb950', '#d29922', '#f85149', '#bc8cff',
+    '#39d2c0', '#e07c5f', '#79c0ff', '#7ee787', '#f0883e',
+  ]
+
+  return keys.map((key, i) => {
+    const meta = projectMeta.get(key)
+    const colItems = buckets.get(key) ?? []
+    const wip = wipLimits[key] ?? null
+    const color = projectColors[i % projectColors.length]
+    return {
+      id: key,
+      label: meta ? `${meta.code} · ${meta.name}` : 'No Project',
+      color: 'text-slate-300',
+      dotColor: color,
+      items: colItems,
+      wipLimit: wip,
       isOverWip: wip !== null && colItems.length > wip,
     }
   })
@@ -322,6 +392,7 @@ function groupByAssignee(
 
 function applyFilters(items: KanbanItem[], filters: KanbanFilters): KanbanItem[] {
   return items.filter((item) => {
+    if (filters.projects.length > 0 && !filters.projects.includes(item.project_id)) return false
     if (filters.types.length > 0 && !filters.types.includes(item.type)) return false
     if (filters.priorities.length > 0 && !filters.priorities.includes(item.priority)) return false
     if (filters.assignees.length > 0) {
@@ -341,42 +412,58 @@ function applyFilters(items: KanbanItem[], filters: KanbanFilters): KanbanItem[]
 
 // ─── HOOK ────────────────────────────────────────────────────────────────────
 
-export function useKanbanBoard(projectId: string | undefined) {
+/**
+ * @param projectId — optional. When provided, scopes to a single project.
+ *                     When undefined (default /board/all), shows cross-project.
+ */
+export function useKanbanBoard(projectId?: string) {
   const queryClient = useQueryClient()
+  const isCrossProject = !projectId
 
   // ── Board settings (local state) ────────────────────────────────────────────
-  const [selectedSprintId, setSelectedSprintId] = useState<string | null>(null)
-  const [groupBy, setGroupBy]                   = useState<GroupByField>('status')
-  const [filters, setFilters]                   = useState<KanbanFilters>(EMPTY_FILTERS)
-  const [wipLimits, setWipLimits]               = useState<Record<string, number | null>>({})
-  const [collapsedColumns, setCollapsedColumns]  = useState<Set<string>>(new Set(DEFAULT_COLLAPSED))
+  const [sprintScope, setSprintScope]             = useState<SprintScope>('active')
+  const [groupBy, setGroupBy]                     = useState<GroupByField>('status')
+  const [filters, setFilters]                     = useState<KanbanFilters>(EMPTY_FILTERS)
+  const [wipLimits, setWipLimits]                 = useState<Record<string, number | null>>({})
+  const [collapsedColumns, setCollapsedColumns]   = useState<Set<string>>(new Set(DEFAULT_COLLAPSED))
 
-  // ── Data queries ────────────────────────────────────────────────────────────
+  // ── Data query ──────────────────────────────────────────────────────────────
+  const queryKey = isCrossProject
+    ? ['board', 'cross-project', sprintScope]
+    : ['board', 'project', projectId, sprintScope]
+
   const itemsQuery = useQuery({
-    queryKey: [...workItemKeys.list(projectId ?? ''), selectedSprintId ?? 'all'],
-    queryFn:  () => fetchBoardItems(projectId!, selectedSprintId),
-    enabled:  Boolean(projectId),
+    queryKey,
+    queryFn: () => isCrossProject
+      ? fetchCrossProjectItems(sprintScope)
+      : fetchProjectItems(projectId!, sprintScope),
     staleTime: 15_000,
     placeholderData: (prev) => prev,
   })
 
-  const sprintsQuery = useQuery({
-    queryKey: ['sprints', projectId ?? ''],
-    queryFn:  () => fetchProjectSprints(projectId!),
-    enabled:  Boolean(projectId),
-    staleTime: 60_000,
-  })
-
-  const teamQuery = useQuery({
-    queryKey: ['team-members', projectId ?? ''],
-    queryFn:  () => fetchProjectTeam(projectId!),
-    enabled:  Boolean(projectId),
-    staleTime: 60_000,
-  })
-
-  // ── Derived: filter → group ─────────────────────────────────────────────────
+  // ── Derived data ───────────────────────────────────────────────────────────
   const allItems = itemsQuery.data ?? []
 
+  // Extract unique projects and team members from the data (no extra queries!)
+  const availableProjects = useMemo(() => extractProjects(allItems), [allItems])
+  const teamMembers = useMemo(() => {
+    const seen = new Set<string>()
+    const team: WorkItemProfile[] = []
+    for (const item of allItems) {
+      const a = item.assignee as unknown as WorkItemProfile | null
+      if (a && !seen.has(a.id)) {
+        seen.add(a.id)
+        team.push(a)
+      }
+    }
+    return team.sort((x, y) =>
+      (x.display_name ?? x.full_name ?? x.email).localeCompare(
+        y.display_name ?? y.full_name ?? y.email
+      )
+    )
+  }, [allItems])
+
+  // Filter → Group
   const filteredItems = useMemo(
     () => applyFilters(allItems, filters),
     [allItems, filters],
@@ -388,10 +475,10 @@ export function useKanbanBoard(projectId: string | undefined) {
       case 'priority': return groupByPriority(filteredItems, wipLimits)
       case 'type':     return groupByType(filteredItems, wipLimits)
       case 'assignee': return groupByAssignee(filteredItems, wipLimits)
+      case 'project':  return groupByProject(filteredItems, wipLimits)
     }
   }, [filteredItems, groupBy, wipLimits])
 
-  // Split columns into visible and collapsed
   const visibleColumns = useMemo(
     () => columns.filter((c) => !collapsedColumns.has(c.id)),
     [columns, collapsedColumns],
@@ -402,16 +489,16 @@ export function useKanbanBoard(projectId: string | undefined) {
     [columns, collapsedColumns],
   )
 
-  // ── Aggregate stats ─────────────────────────────────────────────────────────
+  // ── Stats ──────────────────────────────────────────────────────────────────
   const totalItems      = allItems.length
   const filteredCount   = filteredItems.length
   const hasActiveFilter = filters.types.length > 0 ||
     filters.priorities.length > 0 ||
     filters.assignees.length > 0 ||
     filters.labels.length > 0 ||
+    filters.projects.length > 0 ||
     filters.search.trim() !== ''
 
-  // Unique labels across all items (for filter dropdown)
   const allLabels = useMemo(() => {
     const s = new Set<string>()
     for (const item of allItems) {
@@ -420,7 +507,7 @@ export function useKanbanBoard(projectId: string | undefined) {
     return Array.from(s).sort()
   }, [allItems])
 
-  // ── Drag-and-drop mutation ──────────────────────────────────────────────────
+  // ── Drag-and-drop mutation ─────────────────────────────────────────────────
   const moveItem = useMutation({
     mutationFn: async ({
       itemId,
@@ -431,7 +518,6 @@ export function useKanbanBoard(projectId: string | undefined) {
       newColumnId: string
       newPosition: number
     }) => {
-      // Build the update payload based on groupBy field
       const patch: Record<string, unknown> = { board_position: newPosition }
 
       if (groupBy === 'status')   patch.status      = newColumnId
@@ -439,6 +525,10 @@ export function useKanbanBoard(projectId: string | undefined) {
       if (groupBy === 'type')     patch.type         = newColumnId
       if (groupBy === 'assignee') {
         patch.assignee_id = newColumnId === '__unassigned__' ? null : newColumnId
+      }
+      // groupBy === 'project' → moving between projects changes project_id
+      if (groupBy === 'project') {
+        patch.project_id = newColumnId === '__no_project__' ? null : newColumnId
       }
 
       const { error } = await db
@@ -449,46 +539,36 @@ export function useKanbanBoard(projectId: string | undefined) {
       if (error) throw new Error(`Failed to move item: ${error.message}`)
     },
 
-    // ── Optimistic update ────────────────────────────────────────────────────
     onMutate: async ({ itemId, newColumnId, newPosition }) => {
-      const listKey = [...workItemKeys.list(projectId ?? ''), selectedSprintId ?? 'all']
-      await queryClient.cancelQueries({ queryKey: listKey })
-
-      const prev = queryClient.getQueryData<KanbanItem[]>(listKey)
+      await queryClient.cancelQueries({ queryKey })
+      const prev = queryClient.getQueryData<KanbanItem[]>(queryKey)
 
       if (prev) {
         const updated = prev.map((item) => {
           if (item.id !== itemId) return item
-
           const patch: Partial<KanbanItem> = { board_position: newPosition }
           if (groupBy === 'status')   patch.status      = newColumnId as WorkItemStatus
           if (groupBy === 'priority') patch.priority     = newColumnId as WorkItemPriority
           if (groupBy === 'type')     patch.type         = newColumnId as WorkItemType
           if (groupBy === 'assignee') patch.assignee_id  = newColumnId === '__unassigned__' ? null : newColumnId
-
+          if (groupBy === 'project')  patch.project_id   = newColumnId === '__no_project__' ? null : newColumnId
           return { ...item, ...patch }
         })
-
-        queryClient.setQueryData(listKey, updated)
+        queryClient.setQueryData(queryKey, updated)
       }
-
       return { prev }
     },
 
     onError: (_err, _vars, ctx) => {
-      if (ctx?.prev) {
-        const listKey = [...workItemKeys.list(projectId ?? ''), selectedSprintId ?? 'all']
-        queryClient.setQueryData(listKey, ctx.prev)
-      }
+      if (ctx?.prev) queryClient.setQueryData(queryKey, ctx.prev)
     },
 
     onSettled: () => {
-      const listKey = [...workItemKeys.list(projectId ?? ''), selectedSprintId ?? 'all']
-      queryClient.invalidateQueries({ queryKey: listKey })
+      queryClient.invalidateQueries({ queryKey })
     },
   })
 
-  // ── Column actions ──────────────────────────────────────────────────────────
+  // ── Column actions ─────────────────────────────────────────────────────────
   const toggleCollapse = useCallback((columnId: string) => {
     setCollapsedColumns((prev) => {
       const next = new Set(prev)
@@ -504,7 +584,7 @@ export function useKanbanBoard(projectId: string | undefined) {
 
   const clearFilters = useCallback(() => setFilters(EMPTY_FILTERS), [])
 
-  // ── Return ──────────────────────────────────────────────────────────────────
+  // ── Return ─────────────────────────────────────────────────────────────────
   return {
     // Data
     columns,
@@ -515,16 +595,22 @@ export function useKanbanBoard(projectId: string | undefined) {
     filteredCount,
     hasActiveFilter,
     allLabels,
-    teamMembers: teamQuery.data ?? [],
+    teamMembers,
+    availableProjects,
+    isCrossProject,
 
     // Loading
     isLoading:  itemsQuery.isLoading,
     isError:    itemsQuery.isError,
 
-    // Sprint
-    sprints:          sprintsQuery.data ?? [],
-    selectedSprintId,
-    setSelectedSprintId,
+    // Sprint scope
+    sprintScope,
+    setSprintScope,
+
+    // Legacy compatibility — empty array since we don't list individual sprints now
+    sprints: [] as SprintOption[],
+    selectedSprintId: null as string | null,
+    setSelectedSprintId: (() => {}) as (id: string | null) => void,
 
     // Grouping
     groupBy,

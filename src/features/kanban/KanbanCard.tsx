@@ -189,6 +189,16 @@ export const KanbanCard = memo(function KanbanCard({
               {typeCfg.label}
             </span>
 
+            {/* Project code (visible in cross-project mode) */}
+            {item.project_info && (
+              <span className="
+                text-[10px] font-mono font-medium text-cyan-400/70
+                bg-cyan-500/8 px-1.5 py-0.5 rounded
+              ">
+                {(item.project_info as { code: string }).code}
+              </span>
+            )}
+
             {/* Story points */}
             {item.story_points != null && (
               <span className="

@@ -161,10 +161,21 @@ export default function CommandPalette({ open, onClose }: CommandPaletteProps) {
                   "
                   autoFocus
                 />
-                <kbd className="text-[10px] bg-white/5 border border-white/10 rounded px-1.5 py-0.5
-                               font-mono text-slate-500 flex-shrink-0">
-                  ESC
-                </kbd>
+                <button
+                  onClick={onClose}
+                  className="
+                    flex items-center justify-center w-6 h-6 rounded-md
+                    bg-white/5 border border-white/10
+                    text-slate-500 hover:text-slate-300 hover:bg-white/10
+                    transition-colors flex-shrink-0 cursor-pointer
+                  "
+                  aria-label="Close"
+                  title="Close (Esc)"
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M1 1L9 9M9 1L1 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                  </svg>
+                </button>
               </div>
 
               {/* Results */}

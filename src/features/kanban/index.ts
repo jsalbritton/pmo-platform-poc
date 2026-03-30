@@ -22,4 +22,6 @@ export type {
   GroupByField,
   KanbanFilters,
   SprintOption,
+  SprintScope,
+  BoardProject,
 } from './useKanbanBoard'
