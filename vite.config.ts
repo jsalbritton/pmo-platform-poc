@@ -56,7 +56,7 @@ export default defineConfig({
           if (id.includes('node_modules/@supabase')) {
             return 'supabase'
           }
-          if (id.includes('node_modules/@xyflow') || id.includes('node_modules/framer-motion')) {
+          if (id.includes('node_modules/framer-motion')) {
             return 'viz'
           }
           if (id.includes('node_modules/@tanstack')) {

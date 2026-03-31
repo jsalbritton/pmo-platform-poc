@@ -20,7 +20,11 @@
  */
 
 import { memo } from 'react'
-import { Handle, Position, type NodeProps } from '@xyflow/react'
+// @xyflow/react removed in S1A — constellation renders via sigma.js.
+// This file is preserved as reference. Local stubs keep TS happy without the dependency.
+const Position = { Top: 'top' as const, Bottom: 'bottom' as const, Left: 'left' as const, Right: 'right' as const }
+type NodeProps = { data: Record<string, unknown> }
+function Handle(_props: { type: string; position: string; className?: string }) { return null }
 import { PULSE_COLORS, type ProjectNodeData } from './transformData'
 
 // ─── SPARKLINE (SVG mini chart) ──────────────────────────────────────────────

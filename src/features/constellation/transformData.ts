@@ -15,7 +15,26 @@
  * DECISION REF: D-043 (resource-driven risk propagation)
  */
 
-import type { Node, Edge } from '@xyflow/react'
+// @xyflow/react was uninstalled in S1A (constellation migrated to sigma.js).
+// These minimal local types replace Node<T> and Edge<T> so the legacy transform
+// functions compile without the dependency. The functions themselves are dead code
+// in the sigma.js path — preserved as reference for the consulting firm handoff.
+type XFlowNode<TData> = {
+  id: string
+  type: string
+  position: { x: number; y: number }
+  data: TData
+  style?: Record<string, unknown>
+}
+type XFlowEdge<TData> = {
+  id: string
+  source: string
+  target: string
+  type?: string
+  animated?: boolean
+  data: TData
+}
+
 import type { Project, PulseCondition, PulseMomentum, PulseSignal } from '@/types'
 
 // ─── EXPORTED TYPES ──────────────────────────────────────────────────────────
@@ -125,7 +144,7 @@ export function edgeDashArray(relationships: RiskEdgeData['relationships']): str
 export function transformProjectsToNodes(
   projects: Project[],
   sparklines: SparklineMap = {},
-): Node<ProjectNodeData>[] {
+): XFlowNode<ProjectNodeData>[] {
   return projects
     .filter(p => p.status !== 'cancelled')   // cancelled projects don't appear
     .map((p) => {
@@ -150,13 +169,13 @@ export function transformProjectsToNodes(
         style: {
           // @xyflow uses these for the wrapper div; actual node rendering is in ProjectNode.tsx
         },
-      } satisfies Node<ProjectNodeData>
+      } satisfies XFlowNode<ProjectNodeData>
     })
 }
 
 export function transformPropagationToEdges(
   propagation: PropagationResult | null,
-): Edge<RiskEdgeData>[] {
+): XFlowEdge<RiskEdgeData>[] {
   if (!propagation || !propagation.affected_projects) return []
 
   return propagation.affected_projects.map((ap) => ({
@@ -171,7 +190,7 @@ export function transformPropagationToEdges(
       reasons: ap.propagation_reasons,
       constrainedResources: ap.constrained_resources,
     },
-  } satisfies Edge<RiskEdgeData>))
+  } satisfies XFlowEdge<RiskEdgeData>))
 }
 
 // ─── COMBINED TRANSFORM ─────────────────────────────────────────────────────
@@ -181,7 +200,7 @@ export function transformConstellationData(
   projects: Project[],
   propagation: PropagationResult | null,
   sparklines: SparklineMap = {},
-): { nodes: Node<ProjectNodeData>[]; edges: Edge<RiskEdgeData>[] } {
+): { nodes: XFlowNode<ProjectNodeData>[]; edges: XFlowEdge<RiskEdgeData>[] } {
   return {
     nodes: transformProjectsToNodes(projects, sparklines),
     edges: transformPropagationToEdges(propagation),

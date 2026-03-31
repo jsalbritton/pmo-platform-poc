@@ -768,7 +768,7 @@ function ProjectTableRow({ project, onNavigate, zebra = false }: { project: Proj
     <button
       onClick={() => onNavigate(project.id)}
       className={`
-        cv-row
+        cv-row scroll-reveal-up
         w-full flex items-center gap-3 px-4 py-2.5
         hover:bg-blue-50/50 transition-colors group text-left
         border-l-2 ${pc.leftBorder}
@@ -855,7 +855,7 @@ function CompactCard({ project, onNavigate }: { project: ProjectWithOwner; onNav
       whileHover={{ y: -1, boxShadow: '0 4px 16px rgba(0,0,0,0.07)' }}
       transition={{ duration: 0.12 }}
       className={`
-        cv-card-sm
+        cv-card-sm scroll-reveal-up
         w-full text-left rounded-xl border-l-2 border border-gray-100 bg-white shadow-sm
         hover:border-gray-200 transition-colors cursor-pointer group
         ${pc.leftBorder} px-3 py-2.5
@@ -951,7 +951,7 @@ function ActiveProjectsView({ projects, onNavigate, statusFilter }: {
   }
 
   const SectionHeader = ({ color, icon, label, count }: { color: string; icon: React.ReactNode; label: string; count: number }) => (
-    <div className="flex items-center gap-2 mb-3">
+    <div className="scroll-reveal-up flex items-center gap-2 mb-3">
       <div className="flex items-center gap-2">
         <span className={`text-[12px] font-bold ${color} flex items-center gap-1.5`}>
           {icon} {label}

@@ -20,11 +20,17 @@
  */
 
 import { memo, useState } from 'react'
-import {
-  BaseEdge,
-  getSmoothStepPath,
-  type EdgeProps,
-} from '@xyflow/react'
+// @xyflow/react removed in S1A — constellation renders via sigma.js.
+// This file is preserved as reference. Local stubs keep TS happy without the dependency.
+type EdgeProps = {
+  id: string
+  sourceX: number; sourceY: number
+  targetX: number; targetY: number
+  sourcePosition: string; targetPosition: string
+  data?: Record<string, unknown>
+}
+function getSmoothStepPath(_opts: Record<string, unknown>): [string, number, number] { return ['', 0, 0] }
+function BaseEdge(_props: { id: string; path: string; style?: Record<string, unknown> }) { return null }
 import {
   edgeColor,
   edgeStrokeWidth,
