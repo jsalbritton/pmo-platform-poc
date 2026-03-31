@@ -37,6 +37,18 @@ interface PendingEntry {
 /** Terminate idle workers after this many ms of inactivity */
 const IDLE_TIMEOUT_MS = 30_000
 
+/**
+ * Static worker URL map — required by Vite 8 / Rolldown.
+ * Rolldown cannot analyse dynamic template strings inside new URL(..., import.meta.url).
+ * Each entry must be a static string literal so the bundler can resolve the asset at
+ * build time and emit it with the correct hashed filename.
+ */
+const WORKER_URLS: Record<WorkerDomain, URL> = {
+  constellation: new URL('./constellation.worker.ts', import.meta.url),
+  ml:            new URL('./ml.worker.ts',            import.meta.url),
+  risk:          new URL('./risk.worker.ts',          import.meta.url),
+}
+
 // ─── WorkerBus ────────────────────────────────────────────────────────────────
 
 class WorkerBus {
@@ -52,12 +64,10 @@ class WorkerBus {
    */
   private acquire(domain: WorkerDomain): Worker {
     if (!this.workers.has(domain)) {
-      // Vite transforms new URL('./x.worker.ts', import.meta.url) at build time
-      // into the correct hashed production URL. No runtime path guessing needed.
-      const worker = new Worker(
-        new URL(`./${domain}.worker.ts`, import.meta.url),
-        { type: 'module' },
-      )
+      // Vite/Rolldown transforms each static new URL(..., import.meta.url) at build
+      // time into the correct hashed production URL. Uses WORKER_URLS map above
+      // (Rolldown requires static string literals — dynamic template strings not allowed).
+      const worker = new Worker(WORKER_URLS[domain], { type: 'module' })
       worker.onmessage = (e: MessageEvent<BusResponse>) => this._receive(e.data)
       worker.onerror   = (e: ErrorEvent) => {
         console.error(`[WorkerBus:${domain}] uncaught worker error`, e.message)
