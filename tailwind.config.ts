@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss'
+import plugin from 'tailwindcss/plugin'
 
 const config: Config = {
   darkMode: ['class'],
@@ -91,7 +92,42 @@ const config: Config = {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [
+    require('tailwindcss-animate'),
+
+    // ── D-052: content-visibility utilities ───────────────────────────────────
+    // content-visibility: auto lets the browser skip rendering of offscreen
+    // elements entirely. Applied to KanbanCards, this is the single biggest
+    // performance win for the 22K+ item dataset — equivalent to free virtual
+    // scrolling with zero library overhead.
+    //
+    // contain-intrinsic-size: gives the browser a size hint so the scroll bar
+    // stays accurate even when items are skipped. 96px ≈ average card height.
+    //
+    // Baseline: content-visibility — Chrome 85+ (2020), Firefox 125+ (2024),
+    //           Safari 18+ (2024). Enterprise Edge/Chrome: fully supported.
+    plugin(({ addUtilities }) => {
+      addUtilities({
+        '.cv-auto': {
+          'content-visibility': 'auto',
+        },
+        '.cv-hidden': {
+          'content-visibility': 'hidden',
+        },
+        '.cv-visible': {
+          'content-visibility': 'visible',
+        },
+        // Kanban card size hint — keeps scrollbar accurate when cards are skipped
+        '.cis-card': {
+          'contain-intrinsic-size': 'auto 96px',
+        },
+        // Work item row size hint (for future list views)
+        '.cis-row': {
+          'contain-intrinsic-size': 'auto 48px',
+        },
+      })
+    }),
+  ],
 }
 
 export default config

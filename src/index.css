@@ -825,3 +825,48 @@
     transform: scale(0.96) translateY(-8px);
   }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Kanban Board — D-052 CSS Architecture
+   @starting-style entry for cards: fires on first paint of each card
+   (when a card is dropped into a new column, or a column is expanded).
+   Springs from slightly above with a scale pop — faster than Framer
+   Motion for this use case, runs on compositor thread, zero JS.
+
+   .kanban-card-enter must live outside @layer (same rule as cp-panel).
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* The transition is declared as a normal class — always present */
+@layer utilities {
+  .kanban-card-enter {
+    transition:
+      opacity  220ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+}
+
+/* @starting-style block: defines the FROM state before first paint  */
+@starting-style {
+  .kanban-card-enter {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   Kanban Board background — provides depth for column glassmorphism.
+   Applied to the board scroll area in Board.tsx so the glass columns
+   have a rich surface to refract against.
+   ═══════════════════════════════════════════════════════════════════ */
+@layer utilities {
+  .kanban-board-bg {
+    background:
+      radial-gradient(ellipse 80% 60% at 15% 20%,
+        oklch(36% 0.140 265 / 0.40) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 80% at 85% 75%,
+        oklch(32% 0.155 265 / 0.30) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 50% at 50% 50%,
+        oklch(75% 0.140 230 / 0.04) 0%, transparent 70%),
+      oklch(28% 0.145 265);
+  }
+}

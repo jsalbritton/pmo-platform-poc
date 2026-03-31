@@ -354,7 +354,7 @@ export default function Board() {
   }, [openItemId, board, toggleBoardSearch])
 
   return (
-    <div className="h-screen flex flex-col bg-background relative">
+    <div className="h-screen flex flex-col kanban-board-bg relative">
       {/* ── Board Header ───────────────────────────────────────────────────── */}
       <BoardHeader
         // Sprint scope

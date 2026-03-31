@@ -68,14 +68,20 @@ function Dropdown({
     <div ref={ref} className="relative">
       <div onClick={() => setOpen((v) => !v)}>{trigger}</div>
       {open && (
-        <div className={`
-          absolute top-full mt-1.5 z-50
-          ${align === 'right' ? 'right-0' : 'left-0'}
-          min-w-[200px] max-h-[320px] overflow-y-auto
-          bg-white border border-gray-200 rounded-xl
-          shadow-xl shadow-gray-300/50
-          py-1
-        `}>
+        <div
+          className={`
+            absolute top-full mt-1.5 z-50
+            ${align === 'right' ? 'right-0' : 'left-0'}
+            min-w-[200px] max-h-[320px] overflow-y-auto
+            rounded-xl py-1
+          `}
+          style={{
+            background: 'oklch(24% 0.138 265 / 0.97)',
+            border: '1px solid oklch(75% 0.140 230 / 0.15)',
+            boxShadow: '0 16px 48px oklch(12% 0.030 265 / 0.5)',
+            backdropFilter: 'blur(16px)',
+          }}
+        >
           {children}
         </div>
       )}
@@ -99,8 +105,8 @@ function DropdownItem({
         w-full flex items-center gap-2 px-3 py-2 text-left
         text-xs transition-colors
         ${active
-          ? 'text-blue-600 bg-blue-50'
-          : 'text-gray-700 hover:bg-gray-50'
+          ? 'text-cyan-300 bg-[oklch(75%_0.140_230_/_0.10)]'
+          : 'text-slate-300 hover:bg-[oklch(100%_0_0_/_0.05)]'
         }
       `}
     >
@@ -121,7 +127,7 @@ function FilterChip({
   return (
     <span className="
       inline-flex items-center gap-1 px-2 py-0.5 rounded-md
-      bg-blue-50 border border-blue-200 text-[11px] text-blue-600
+      border text-[11px] text-cyan-300 border-[oklch(75%_0.140_230_/_0.25)] bg-[oklch(75%_0.140_230_/_0.10)]
     ">
       {label}
       <button onClick={onRemove} className="hover:text-blue-500">
@@ -154,7 +160,7 @@ function FilterSection<T extends string>({
 
   return (
     <div className="py-1">
-      <div className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] text-gray-400 uppercase tracking-wider font-medium">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 text-[10px] text-slate-500 uppercase tracking-wider font-medium">
         <Icon size={10} weight="bold" />
         {label}
       </div>
@@ -168,8 +174,8 @@ function FilterSection<T extends string>({
               w-full flex items-center gap-2 px-3 py-1.5 text-left
               text-xs transition-colors
               ${isSelected
-                ? 'text-blue-600 bg-blue-50'
-                : 'text-gray-700 hover:bg-gray-50'
+                ? 'text-cyan-300 bg-[oklch(75%_0.140_230_/_0.10)]'
+                : 'text-slate-300 hover:bg-[oklch(100%_0_0_/_0.05)]'
               }
             `}
           >
@@ -177,8 +183,8 @@ function FilterSection<T extends string>({
               w-3.5 h-3.5 rounded border flex items-center justify-center
               transition-colors
               ${isSelected
-                ? 'bg-blue-500 border-blue-500'
-                : 'border-gray-300 bg-transparent'
+                ? 'bg-cyan-500 border-cyan-500'
+                : 'border-slate-600 bg-transparent'
               }
             `}>
               {isSelected && (
@@ -308,7 +314,13 @@ export function BoardHeader({
   const currentGroupOption = GROUP_OPTIONS.find((g) => g.value === groupBy)!
 
   return (
-    <div className="flex-shrink-0 border-b border-gray-200 bg-white/90 backdrop-blur-sm">
+    <div
+      className="flex-shrink-0 backdrop-blur-sm"
+      style={{
+        background: 'oklch(26% 0.142 265 / 0.92)',
+        borderBottom: '1px solid oklch(75% 0.140 230 / 0.10)',
+      }}
+    >
       {/* ── Row 1: Title + controls ────────────────────────────────────────── */}
       <div className="flex items-center gap-3 px-4 py-3">
         {/* Board icon + title */}
@@ -316,21 +328,20 @@ export function BoardHeader({
           <div className="p-1.5 rounded-lg bg-pmo-cyan/10">
             <Kanban size={18} weight="duotone" style={{ color: '#39c5cf' }} />
           </div>
-          <h1 className="text-base font-semibold text-gray-900 tracking-tight">
+          <h1 className="text-base font-semibold text-slate-100 tracking-tight">
             Sprint Board
           </h1>
         </div>
 
-        <div className="w-px h-5 bg-gray-200" />
+        <div className="w-px h-5 bg-white/10" />
 
         {/* Sprint scope selector */}
         <Dropdown
           trigger={
             <button className="
               flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
-              bg-gray-50 border border-gray-200 hover:border-gray-300
-              text-xs text-gray-700 hover:text-gray-900
-              transition-colors
+              border transition-colors text-xs text-slate-300 hover:text-slate-100
+              bg-[oklch(100%_0_0_/_0.06)] border-[oklch(75%_0.140_230_/_0.12)] hover:border-[oklch(75%_0.140_230_/_0.25)]
             ">
               <Lightning size={12} weight="bold" className={currentScopeOption.color} />
               {currentScopeOption.label}
@@ -354,9 +365,8 @@ export function BoardHeader({
           trigger={
             <button className="
               flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
-              bg-gray-50 border border-gray-200 hover:border-gray-300
-              text-xs text-gray-700 hover:text-gray-900
-              transition-colors
+              border transition-colors text-xs text-slate-300 hover:text-slate-100
+              bg-[oklch(100%_0_0_/_0.06)] border-[oklch(75%_0.140_230_/_0.12)] hover:border-[oklch(75%_0.140_230_/_0.25)]
             ">
               <currentGroupOption.icon size={12} weight="bold" className="text-gray-500" />
               Group: {currentGroupOption.label}
@@ -383,8 +393,8 @@ export function BoardHeader({
               flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg
               border transition-colors text-xs
               ${hasActiveFilter
-                ? 'bg-blue-50 border-blue-200 text-blue-600'
-                : 'bg-gray-50 border-gray-200 hover:border-gray-300 text-gray-700 hover:text-gray-900'
+                ? 'text-cyan-300 bg-[oklch(75%_0.140_230_/_0.12)] border-[oklch(75%_0.140_230_/_0.30)]'
+                : 'text-slate-300 hover:text-slate-100 bg-[oklch(100%_0_0_/_0.06)] border-[oklch(75%_0.140_230_/_0.12)] hover:border-[oklch(75%_0.140_230_/_0.25)]'
               }
             `}>
               <FunnelSimple size={12} weight="bold" />
@@ -415,7 +425,7 @@ export function BoardHeader({
                   return p ? `${p.code} · ${p.name}` : id.slice(0, 8)
                 }}
               />
-              <div className="h-px bg-gray-100" />
+              <div className="h-px bg-white/5" />
             </>
           )}
 
@@ -446,7 +456,7 @@ export function BoardHeader({
           {/* Assignee filters */}
           {teamMembers.length > 0 && (
             <>
-              <div className="h-px bg-gray-100" />
+              <div className="h-px bg-white/5" />
               <FilterSection
                 label="Assignee"
                 icon={User}
@@ -464,7 +474,7 @@ export function BoardHeader({
           {/* Label filters */}
           {allLabels.length > 0 && (
             <>
-              <div className="h-px bg-gray-100" />
+              <div className="h-px bg-white/5" />
               <FilterSection
                 label="Labels"
                 icon={Tag}
@@ -479,12 +489,12 @@ export function BoardHeader({
           {/* Clear all */}
           {hasActiveFilter && (
             <>
-              <div className="h-px bg-gray-100" />
+              <div className="h-px bg-white/5" />
               <button
                 onClick={onClearFilters}
                 className="
-                  w-full px-3 py-2 text-xs text-red-600
-                  hover:bg-red-50 transition-colors text-left
+                  w-full px-3 py-2 text-xs text-red-400
+                  hover:bg-[oklch(62%_0.205_25_/_0.10)] transition-colors text-left
                 "
               >
                 Clear all filters
@@ -499,8 +509,8 @@ export function BoardHeader({
           className={`
             p-1.5 rounded-lg border transition-colors
             ${showSearch || filters.search
-              ? 'bg-blue-50 border-blue-200 text-blue-600'
-              : 'bg-gray-50 border-gray-200 hover:border-gray-300 text-gray-500 hover:text-gray-700'
+              ? 'text-cyan-300 bg-[oklch(75%_0.140_230_/_0.12)] border-[oklch(75%_0.140_230_/_0.30)]'
+              : 'text-slate-400 hover:text-slate-200 bg-[oklch(100%_0_0_/_0.06)] border-[oklch(75%_0.140_230_/_0.12)] hover:border-[oklch(75%_0.140_230_/_0.25)]'
             }
           `}
           title="Search board items (/)"
@@ -512,10 +522,10 @@ export function BoardHeader({
         <div className="flex-1" />
 
         {/* Item count */}
-        <div className="text-[11px] text-gray-500 tabular-nums">
+        <div className="text-[11px] text-slate-500 tabular-nums">
           {hasActiveFilter ? (
             <span>
-              <span className="text-blue-600 font-medium">{filteredCount}</span>
+              <span className="text-cyan-400 font-medium">{filteredCount}</span>
               {' / '}
               {totalItems} items
             </span>
@@ -537,7 +547,7 @@ export function BoardHeader({
             autoFocus
             className="
               flex-1 bg-transparent border-none outline-none
-              text-sm text-gray-900 placeholder:text-gray-400
+              text-sm text-slate-200 placeholder:text-slate-600
             "
           />
           {filters.search && (
@@ -603,7 +613,7 @@ export function BoardHeader({
           )}
           <button
             onClick={onClearFilters}
-            className="text-[11px] text-gray-400 hover:text-red-600 transition-colors ml-1"
+            className="text-[11px] text-slate-600 hover:text-red-400 transition-colors ml-1"
           >
             Clear all
           </button>

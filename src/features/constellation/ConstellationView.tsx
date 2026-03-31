@@ -2,61 +2,53 @@
  * ConstellationView.tsx — Main page component for the Constellation View
  *
  * THIS FILE HAS ONE JOB:
- * Mount the @xyflow/react canvas with our custom node and edge types,
- * wire up the data hook, and render the detail panel on node click.
+ * Orchestrate all Constellation layers — data fetching, WebGL rendering,
+ * worker physics, and the detail panel — into a single full-screen view.
  *
- * THIS IS THE DEMO HEADLINE FEATURE (D-040):
- * "Watch what happens when one project goes critical — see the cascade
- * across 35 connected projects, with the exact resource constraints
- * that cause it."
+ * MIGRATION NOTE (from @xyflow/react → sigma.js):
+ * Sprint 1B replaced the @xyflow/react renderer with sigma.js WebGL.
+ * Rationale: see ADR-002. The data pipeline (useConstellationData, transformData.ts)
+ * is unchanged. DetailPanel and all panels are unchanged. Only the renderer changed.
  *
  * COMPONENT STRUCTURE:
- * - ConstellationView (this file) — page layout, ReactFlow mount, detail panel
- * - ProjectNode (imported) — custom node renderer
- * - RiskEdge (imported) — custom edge renderer
- * - useConstellationData (imported) — TanStack hook, returns nodes/edges
- * - transformData (used internally by hook) — pure transform
+ *   ConstellationView (this file)
+ *     └── CSS animated background       — deep-space ambience (Layer 1)
+ *     └── ConstellationSigmaCanvas      — sigma.js WebGL nodes + edges (Layer 2)
+ *     └── ConstellationSettlingBar      — alpha indicator (Layer 3)
+ *     └── Info panel (top-left)         — project count, instructions
+ *     └── Legend panel (top-right)      — pulse condition legend
+ *     └── DetailPanel (right drawer)    — selected project details
  *
- * ARCHITECTURE REF: Constellation_View_Architecture.html, Steps 4-5
+ * DATA FLOW:
+ *   Supabase → useConstellationData → projects/propagation
+ *   projects/propagation → buildConstellationGraph → WorkerBus → d3-force ticks
+ *   ticks → ConstellationSigmaCanvas (direct WebGL, no React state for positions)
+ *   project click → selectedProjectId state → DetailPanel
+ *
+ * UPGRADE PATH (Sprint 2):
+ *   - Replace CSS background with WebGL shader (THREE.js or custom fragment shader)
+ *   - Add custom sigma node program with per-node bloom glow
+ *   - Add Rive state machines for node enter/exit/select animations
+ *
+ * ADR references: ADR-001 (Web Workers), ADR-002 (sigma.js renderer)
  */
 
-import { useCallback, useState, useMemo } from 'react'
-import {
-  ReactFlow,
-  Background,
-  Controls,
-  MiniMap,
-  Panel,
-  useNodesState,
-  useEdgesState,
-  type Node,
-} from '@xyflow/react'
-import '@xyflow/react/dist/style.css'
+import { useState, useMemo, useCallback, useRef } from 'react'
+import { useConstellationData }  from './useConstellationData'
+import { ConstellationSigmaCanvas } from './ConstellationSigmaCanvas'
+import { buildConstellationGraph }  from './transformSigmaData'
+import { PULSE_COLORS }             from './transformData'
+import type { Project }             from '@/types'
+import type { PropagationResult }   from './transformData'
 
-import ProjectNode from './ProjectNode'
-import RiskEdge from './RiskEdge'
-import { useConstellationData } from './useConstellationData'
-import { PULSE_COLORS, type ProjectNodeData } from './transformData'
-import type { Project } from '@/types'
+// ─── CANVAS DIMENSIONS ───────────────────────────────────────────────────────
+// Used for the d3-force center force. Matches the viewport.
+const CANVAS_W = typeof window !== 'undefined' ? window.innerWidth  : 1440
+const CANVAS_H = typeof window !== 'undefined' ? window.innerHeight : 900
 
-// ─── CUSTOM NODE/EDGE TYPE REGISTRATION ──────────────────────────────────────
-// Defined outside component so @xyflow doesn't re-create on every render.
-// These map the type strings in transformData.ts to actual React components.
-
-const nodeTypes = { projectNode: ProjectNode }
-const edgeTypes = { riskEdge: RiskEdge }
-
-// ─── MINIMAP COLOR ───────────────────────────────────────────────────────────
-
-function minimapNodeColor(node: Node): string {
-  const data = node.data as unknown as ProjectNodeData
-  if (!data?.condition) return '#475569'
-  return PULSE_COLORS[data.condition]?.fill ?? '#475569'
-}
-
-// ─── DETAIL PANEL ────────────────────────────────────────────────────────────
-// Slides in from the right when a node is clicked. Shows project details,
-// pulse breakdown, and re-score button.
+// ─── DETAIL PANEL ─────────────────────────────────────────────────────────────
+// Reused from the original @xyflow implementation.
+// Slides in from the right when a node is selected.
 
 function DetailPanel({
   project,
@@ -65,14 +57,14 @@ function DetailPanel({
   onRescore,
   onClose,
 }: {
-  project: Project
-  propagation: { affected_count?: number; affected_projects?: { name: string; pulse_condition: string }[] } | null
+  project:     Project
+  propagation: PropagationResult | null
   isRescoring: boolean
-  onRescore: (id: string) => void
-  onClose: () => void
+  onRescore:   (id: string) => void
+  onClose:     () => void
 }) {
   const condition = project.pulse_condition
-  const colors = condition ? PULSE_COLORS[condition] : null
+  const colors    = condition ? PULSE_COLORS[condition] : null
 
   return (
     <div className="
@@ -90,7 +82,7 @@ function DetailPanel({
           </div>
           <button
             onClick={onClose}
-            className="text-slate-500 hover:text-slate-300 text-lg leading-none ml-2"
+            className="text-slate-500 hover:text-slate-300 text-lg leading-none ml-2 cursor-pointer"
           >
             ×
           </button>
@@ -107,10 +99,7 @@ function DetailPanel({
             className="w-3 h-3 rounded-full"
             style={{ backgroundColor: colors?.fill ?? '#475569' }}
           />
-          <span
-            className="text-sm font-bold"
-            style={{ color: colors?.border ?? '#64748b' }}
-          >
+          <span className="text-sm font-bold" style={{ color: colors?.border ?? '#64748b' }}>
             {colors?.label ?? 'Unscored'}
           </span>
           {project.pulse_momentum && project.pulse_momentum !== 'stable' && (
@@ -135,7 +124,6 @@ function DetailPanel({
           </div>
         </div>
 
-        {/* Signal chips */}
         {project.pulse_signals && project.pulse_signals.length > 0 && (
           <div className="mt-3">
             <div className="text-[9px] text-slate-500 uppercase mb-1">Elevated Signals</div>
@@ -157,8 +145,8 @@ function DetailPanel({
         )}
       </div>
 
-      {/* Risk Propagation Summary */}
-      {propagation && propagation.affected_count && propagation.affected_count > 0 && (
+      {/* Risk Cascade */}
+      {propagation && propagation.affected_count != null && propagation.affected_count > 0 && (
         <div className="p-4 border-b border-slate-800">
           <div className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold mb-2">
             Risk Cascade (D-043)
@@ -170,7 +158,7 @@ function DetailPanel({
             {propagation.affected_projects?.slice(0, 10).map((ap) => {
               const apColors = PULSE_COLORS[ap.pulse_condition as keyof typeof PULSE_COLORS]
               return (
-                <div key={ap.name} className="flex items-center gap-2 text-[11px]">
+                <div key={ap.id} className="flex items-center gap-2 text-[11px]">
                   <div
                     className="w-2 h-2 rounded-full flex-shrink-0"
                     style={{ backgroundColor: apColors?.fill ?? '#475569' }}
@@ -197,7 +185,7 @@ function DetailPanel({
             w-full py-2 px-3 rounded-lg text-sm font-semibold
             bg-violet-600 hover:bg-violet-500 text-white
             disabled:opacity-50 disabled:cursor-not-allowed
-            transition-colors
+            transition-colors cursor-pointer
           "
         >
           {isRescoring ? 'Re-scoring…' : 'Re-score Project'}
@@ -210,14 +198,47 @@ function DetailPanel({
   )
 }
 
-// ─── CONSTELLATION VIEW PAGE ─────────────────────────────────────────────────
+// ─── SETTLING BAR ─────────────────────────────────────────────────────────────
+// Shows simulation heat as a thin arc at the bottom.
+// Fades out as alpha approaches 0 (simulation stabilises).
+
+function ConstellationSettlingBar({ alpha, stabilized }: { alpha: number; stabilized: boolean }) {
+  if (stabilized || alpha < 0.02) return null
+
+  return (
+    <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 pointer-events-none">
+      <div className="flex items-center gap-2">
+        <div className="w-32 h-0.5 rounded-full bg-slate-800 overflow-hidden">
+          <div
+            className="h-full rounded-full transition-all duration-100"
+            style={{
+              width:           `${Math.round(alpha * 100)}%`,
+              backgroundColor: '#33BBFF',
+              opacity:         Math.min(alpha * 3, 0.7),
+            }}
+          />
+        </div>
+        <span
+          className="text-[10px] text-slate-500 tabular-nums"
+          style={{ opacity: Math.min(alpha * 3, 0.7) }}
+        >
+          settling…
+        </span>
+      </div>
+    </div>
+  )
+}
+
+// ─── CONSTELLATION VIEW ────────────────────────────────────────────────────────
 
 export default function ConstellationView() {
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null)
+  const [alpha,             setAlpha]             = useState(1)
+  const [isStabilized,      setIsStabilized]       = useState(false)
+  // Monotonic version counter — incremented on every data refresh to trigger fast-path hydration
+  const versionRef = useRef(1)
 
   const {
-    nodes: rawNodes,
-    edges: rawEdges,
     isLoading,
     isError,
     error,
@@ -227,43 +248,44 @@ export default function ConstellationView() {
     isRescoring,
   } = useConstellationData(selectedProjectId ?? undefined)
 
-  // @xyflow needs controlled state for nodes/edges (enables drag, layout updates)
-  const [nodes, setNodes, onNodesChange] = useNodesState(rawNodes)
-  const [edges, setEdges, onEdgesChange] = useEdgesState(rawEdges)
+  // Build the ConstellationGraph payload for the d3-force worker.
+  // Version increments when data changes — triggers the worker's hybrid state fast path.
+  const workerGraph = useMemo(() => {
+    versionRef.current += 1
+    return buildConstellationGraph(
+      projects,
+      propagation,
+      versionRef.current,
+      CANVAS_W,
+      CANVAS_H,
+    )
+  }, [projects, propagation])
 
-  // Sync when hook data changes (Realtime update, re-score, etc.)
-  useMemo(() => {
-    setNodes(rawNodes)
-    setEdges(rawEdges)
-  }, [rawNodes, rawEdges, setNodes, setEdges])
+  const handleNodeSelect  = useCallback((id: string | null) => setSelectedProjectId(id), [])
+  const handleAlphaChange = useCallback((a: number) => setAlpha(a), [])
+  const handleStabilized  = useCallback(() => setIsStabilized(true), [])
 
-  // Node click → open detail panel
-  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    setSelectedProjectId(node.id)
-  }, [])
+  const selectedProject = projects.find(p => p.id === selectedProjectId) ?? null
 
-  // Find the full project object for the detail panel
-  const selectedProject = projects.find(p => p.id === selectedProjectId)
-
-  // ─── LOADING STATE ─────────────────────────────────────────────────────────
+  // ── Loading ────────────────────────────────────────────────────────────────
 
   if (isLoading) {
     return (
-      <div className="w-full h-screen bg-[#0d1117] flex items-center justify-center">
+      <div className="w-full h-screen bg-[#030d1a] flex items-center justify-center">
         <div className="text-center space-y-3">
-          <div className="w-8 h-8 border-2 border-violet-500/30 border-t-violet-500 rounded-full animate-spin mx-auto" />
+          <div className="w-8 h-8 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin mx-auto" />
           <p className="text-sm text-slate-500">Initializing constellation…</p>
-          <p className="text-xs text-slate-600">Loading {projects.length || '150'} projects</p>
+          <p className="text-xs text-slate-600">Loading {projects.length || '—'} projects</p>
         </div>
       </div>
     )
   }
 
-  // ─── ERROR STATE ───────────────────────────────────────────────────────────
+  // ── Error ──────────────────────────────────────────────────────────────────
 
   if (isError) {
     return (
-      <div className="w-full h-screen bg-[#0d1117] flex items-center justify-center">
+      <div className="w-full h-screen bg-[#030d1a] flex items-center justify-center">
         <div className="text-center space-y-2">
           <p className="text-sm text-red-400">Failed to load constellation</p>
           <p className="text-xs text-slate-500">{error?.message}</p>
@@ -272,94 +294,98 @@ export default function ConstellationView() {
     )
   }
 
-  // ─── MAIN RENDER ───────────────────────────────────────────────────────────
+  // ── Main render ────────────────────────────────────────────────────────────
 
   return (
-    <div className="relative w-full h-screen bg-[#0d1117]">
-      <ReactFlow
-        nodes={nodes}
-        edges={edges}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onNodeClick={onNodeClick}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        fitView
-        fitViewOptions={{ padding: 0.2 }}
-        minZoom={0.2}
-        maxZoom={3}
-        attributionPosition="bottom-left"
-        proOptions={{ hideAttribution: true }}
-      >
-        {/* Dot grid background */}
-        <Background color="#1e293b" gap={20} size={1} />
+    <div className="relative w-full h-screen overflow-hidden" style={{ background: '#030d1a' }}>
 
-        {/* Zoom controls — bottom left */}
-        <Controls
-          showInteractive={false}
-          className="!bg-slate-800/80 !border-slate-700 !rounded-lg !shadow-lg"
-        />
+      {/* ── Layer 1: Animated deep-space background ──────────────────────────
+          CSS radial gradients simulating nebula ambient light.
+          Sprint 2 upgrade: replace with WebGL fragment shader for dynamic
+          particle drift and light source interaction with nodes.       */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `
+            radial-gradient(ellipse 80% 50% at 20% 40%, rgba(0,53,149,0.18) 0%, transparent 60%),
+            radial-gradient(ellipse 60% 40% at 80% 70%, rgba(51,187,255,0.06) 0%, transparent 50%),
+            radial-gradient(ellipse 40% 30% at 50% 20%, rgba(0,53,149,0.08) 0%, transparent 40%),
+            #030d1a
+          `,
+        }}
+      />
 
-        {/* Minimap — bottom right, colored by Pulse condition */}
-        <MiniMap
-          nodeColor={minimapNodeColor}
-          maskColor="rgba(13,17,23,0.85)"
-          className="!bg-slate-900 !border-slate-700 !rounded-lg"
-          pannable
-          zoomable
-        />
+      {/* ── Layer 2: sigma.js WebGL canvas ───────────────────────────────────
+          All node + edge rendering. 60fps tick updates bypass React state. */}
+      <ConstellationSigmaCanvas
+        projects={projects}
+        propagation={propagation}
+        workerGraph={workerGraph}
+        onNodeSelect={handleNodeSelect}
+        onAlphaChange={handleAlphaChange}
+        onStabilized={handleStabilized}
+        selectedNodeId={selectedProjectId}
+      />
 
-        {/* Top-left info panel */}
-        <Panel position="top-left" className="!m-4">
-          <div className="bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3 backdrop-blur-sm">
-            <div className="flex items-center gap-2 mb-1">
-              <div className="w-2 h-2 bg-violet-500 rounded-full animate-pulse" />
-              <h1 className="text-sm font-bold text-slate-100">Constellation View</h1>
-            </div>
-            <p className="text-[11px] text-slate-500">
-              {nodes.length} projects · Click node to inspect · Scroll to zoom
-            </p>
+      {/* ── Layer 3: Settling indicator ──────────────────────────────────── */}
+      <ConstellationSettlingBar alpha={alpha} stabilized={isStabilized} />
+
+      {/* ── Info panel — top-left ─────────────────────────────────────────── */}
+      <div className="absolute top-4 left-4 z-10 pointer-events-none">
+        <div className="bg-slate-900/80 border border-slate-700/60 rounded-xl px-4 py-3 backdrop-blur-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse" />
+            <h1 className="text-sm font-bold text-slate-100">Constellation View</h1>
           </div>
-        </Panel>
+          <p className="text-[11px] text-slate-500">
+            {projects.filter(p => p.status !== 'cancelled').length} projects
+            · Click to inspect · Scroll to zoom · Drag to pin
+          </p>
+        </div>
+      </div>
 
-        {/* Legend — top-right */}
-        <Panel position="top-right" className="!m-4">
-          <div className="bg-slate-900/80 border border-slate-700 rounded-xl px-4 py-3 backdrop-blur-sm">
-            <div className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold mb-2">
-              Pulse Condition
+      {/* ── Legend panel — top-right ─────────────────────────────────────── */}
+      <div className="absolute top-4 right-4 z-10 pointer-events-none"
+           style={{ right: selectedProject ? '336px' : '16px', transition: 'right 0.2s ease' }}>
+        <div className="bg-slate-900/80 border border-slate-700/60 rounded-xl px-4 py-3 backdrop-blur-sm">
+          <div className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold mb-2">
+            Pulse Condition
+          </div>
+          <div className="space-y-1.5">
+            {(Object.entries(PULSE_COLORS) as [string, { fill: string; label: string }][]).map(
+              ([, { fill, label }]) => (
+                <div key={label} className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: fill }} />
+                  <span className="text-[10px] text-slate-400">{label}</span>
+                </div>
+              )
+            )}
+          </div>
+          <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-1.5">
+            <div className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold mb-1">
+              Edges (D-043)
             </div>
-            <div className="space-y-1.5">
-              {(Object.entries(PULSE_COLORS) as [string, { fill: string; label: string }][]).map(
-                ([, { fill, label }]) => (
-                  <div key={label} className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: fill }} />
-                    <span className="text-[10px] text-slate-400">{label}</span>
-                  </div>
-                )
-              )}
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-px" style={{ borderTop: '2px dashed #ef4444' }} />
+              <span className="text-[10px] text-slate-400">Shared resource</span>
             </div>
-            <div className="mt-2 pt-2 border-t border-slate-700/50 space-y-1">
-              <div className="text-[9px] uppercase tracking-widest text-slate-500 font-semibold mb-1">
-                Edges (D-043)
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-0.5 bg-red-500 rounded" style={{ borderTop: '2px dashed #ef4444' }} />
-                <span className="text-[10px] text-slate-400">Shared resource</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-0.5 bg-violet-500 rounded" />
-                <span className="text-[10px] text-slate-400">Same PM</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-4 h-0.5 bg-blue-500 rounded" />
-                <span className="text-[10px] text-slate-400">Same program</span>
-              </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-0.5 bg-violet-500 rounded" />
+              <span className="text-[10px] text-slate-400">Same PM</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-0.5 bg-blue-500 rounded" />
+              <span className="text-[10px] text-slate-400">Same program</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-4 h-0.5 bg-slate-600 rounded" />
+              <span className="text-[10px] text-slate-400">Same vertical</span>
             </div>
           </div>
-        </Panel>
-      </ReactFlow>
+        </div>
+      </div>
 
-      {/* Detail Panel — slides in on node click */}
+      {/* ── Detail Panel — right drawer ───────────────────────────────────── */}
       {selectedProject && (
         <DetailPanel
           project={selectedProject}
